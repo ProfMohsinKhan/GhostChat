@@ -671,12 +671,22 @@ function AuthenticatedWorkspace({
   ]);
 
   const filteredContacts = useMemo(() => {
-    return allContacts.filter((c) => {
+    const list = allContacts.filter((c) => {
       const matchesTab = c.tab === activeTab;
       const matchesSearch =
         c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.preview.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesTab && matchesSearch;
+    });
+
+    // WhatsApp / Instagram sorting: Active conversations float to the top
+    return list.slice().sort((a, b) => {
+      const aIsDestroyed = a.expiryBadge === "expired" || a.preview.toLowerCase().includes("destroyed");
+      const bIsDestroyed = b.expiryBadge === "expired" || b.preview.toLowerCase().includes("destroyed");
+      if (aIsDestroyed !== bIsDestroyed) {
+        return aIsDestroyed ? 1 : -1;
+      }
+      return 0;
     });
   }, [allContacts, activeTab, searchQuery]);
 

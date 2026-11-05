@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import type { Contact, SampleMessage } from "./types";
 import { Icon } from "@/components/icons";
 import { useScreenshotProtection } from "@/features/security/screenshot-protection";
@@ -31,8 +31,8 @@ export function ChatView({
   onOpenDestroyModal,
   onSendMessage,
   onTyping,
-  isLive,
-  isKeyReady = true,
+  isLive: _isLive,
+  isKeyReady: _isKeyReady = true,
   isDestroyed = false,
   onReopenSession,
   onRenameContact,
@@ -44,6 +44,10 @@ export function ChatView({
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(contact.name);
   const [lastAttemptTime, setLastAttemptTime] = useState<string | null>(null);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageAreaRef = useRef<HTMLDivElement>(null);
 
   const { isScreenObscured, setIsScreenObscured } = useScreenshotProtection({
     enabled: antiScreenshotEnabled,
@@ -55,8 +59,36 @@ export function ChatView({
     blurInactive: true,
   });
 
+  // Jump to bottom on contact switch or initial mount
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+  }, [contact.id]);
+
+  // Smooth auto-scroll when new messages arrive or when sending
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [contact.messages.length]);
+
+  // Smooth scroll when typing status changes
+  useEffect(() => {
+    if (contact.isTyping) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [contact.isTyping]);
+
+  function handleScroll() {
+    if (!messageAreaRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = messageAreaRef.current;
+    const isScrolledUp = scrollHeight - scrollTop - clientHeight > 140;
+    setShowScrollBottom(isScrolledUp);
+  }
+
+  function scrollToBottom() {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }
+
   // Sync editedName when contact changes
-  React.useEffect(() => {
+  useEffect(() => {
     setEditedName(contact.name);
     setIsEditingName(false);
   }, [contact.id, contact.name]);
@@ -67,6 +99,9 @@ export function ChatView({
     onSendMessage(inputText.trim());
     setInputText("");
     onTyping?.(false);
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 40);
   }
 
   return (
@@ -262,21 +297,22 @@ export function ChatView({
         <div className="header-actions">
           <button
             type="button"
-            className="icon-button header-call-btn"
-            onClick={onOpenInfo}
-            aria-label="Audio call (preview)"
-            title="Audio call (preview)"
+            className="header-timer-chip"
+            onClick={onOpenEphemeralModal}
+            title="Auto-delete timer (click to change)"
+            aria-label={`Auto-delete after ${activeTimer}`}
           >
-            <Icon name="phone" size={18} />
+            <Icon name="clock" size={13} />
+            <span>{activeTimer}</span>
           </button>
           <button
             type="button"
-            className="icon-button header-call-btn"
-            onClick={onOpenInfo}
-            aria-label="Video call (preview)"
-            title="Video call (preview)"
+            className="icon-button header-danger-btn"
+            onClick={onOpenDestroyModal}
+            aria-label="Destroy conversation for both"
+            title="Destroy for Both"
           >
-            <Icon name="video" size={18} />
+            <Icon name="trash" size={17} />
           </button>
           <button
             type="button"
@@ -342,41 +378,17 @@ export function ChatView({
         </div>
       )}
 
-      {/* Ephemeral Notice Banner */}
-      <div className="ephemeral-banner-wrapper">
-        <button
-          type="button"
-          className="ephemeral-banner"
-          onClick={onOpenEphemeralModal}
-          title="Click to adjust ephemeral auto-delete timer"
-        >
-          <span className="banner-icon">
-            <Icon name="clock" size={16} />
-          </span>
-          <span className="banner-text">
-            <strong>Messages disappear after {activeTimer}</strong>
-            <small>Tap to change duration or manage auto-purge</small>
-          </span>
-          <span className="banner-chevron">
-            <Icon name="chevron" size={14} />
-          </span>
-        </button>
-      </div>
-
       {/* Message Area */}
-      <div className="message-area" role="log" aria-live="polite">
-        <div className="date-divider">
-          <span />
-          <span>TODAY · EPHEMERAL SESSION</span>
-          <span />
-        </div>
-
-        <div className="system-note">
-          <Icon name="lock" size={13} />
-          <span>
-            Messages are end-to-end encrypted. No plaintext is stored on the
-            server.
-          </span>
+      <div
+        ref={messageAreaRef}
+        onScroll={handleScroll}
+        className="message-area"
+        role="log"
+        aria-live="polite"
+      >
+        <div className="security-chip-pill">
+          <Icon name="lock" size={12} />
+          <span>Messages are end-to-end encrypted · Auto-delete in {activeTimer}</span>
         </div>
 
         {contact.messages.map((message) => (
@@ -399,49 +411,29 @@ export function ChatView({
             </div>
           </div>
         )}
+
+        {/* Anchor element for smooth auto-scroll to bottom */}
+        <div ref={messagesEndRef} style={{ height: "1px", width: "100%", pointerEvents: "none" }} />
       </div>
 
-      {/* Bottom Quick Action Pills */}
-      <div className="ephemeral-action-bar">
+      {/* Floating Scroll to Bottom button (WhatsApp / Insta style) */}
+      {showScrollBottom && (
         <button
           type="button"
-          className="action-pill destroy-pill"
-          onClick={onOpenDestroyModal}
+          className="scroll-to-bottom-btn"
+          onClick={scrollToBottom}
+          aria-label="Scroll to latest messages"
+          title="Scroll to bottom"
         >
-          <Icon name="trash" size={14} />
-          <span>Destroy for Both</span>
+          <Icon name="chevronDown" size={16} />
         </button>
+      )}
 
-        <button
-          type="button"
-          className="action-pill timer-pill"
-          onClick={onOpenEphemeralModal}
-        >
-          <Icon name="clock" size={14} />
-          <span>Auto-Delete: {activeTimer}</span>
-          <Icon name="chevronDown" size={13} />
-        </button>
-      </div>
-
-      {/* Composer */}
+      {/* Minimalist Composer */}
       <div className="composer-wrap">
         {isDestroyed && onReopenSession && (
-          <div
-            style={{
-              padding: "0.55rem 1rem",
-              background: "rgba(20, 184, 166, 0.12)",
-              border: "1px solid rgba(20, 184, 166, 0.3)",
-              borderRadius: "8px",
-              marginBottom: "0.5rem",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "0.75rem",
-            }}
-          >
-            <span style={{ fontSize: "0.85rem", color: "#2dd4bf" }}>
-              Messages were wiped. Tap Reopen to continue chatting with this peer.
-            </span>
+          <div className="reopen-banner">
+            <span>Messages were wiped. Tap Reopen to continue chatting with this peer.</span>
             <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
               <button
                 type="button"
@@ -479,13 +471,13 @@ export function ChatView({
           </div>
         )}
 
-        <form className="composer" onSubmit={handleSend}>
+        <form className="composer minimalist-composer" onSubmit={handleSend}>
           <button
             type="button"
             className="composer-add"
             onClick={onOpenEphemeralModal}
             aria-label="Attach ephemeral file"
-            title="Attach file (preview)"
+            title="Attach file"
           >
             <Icon name="plus" size={18} />
           </button>
@@ -501,74 +493,21 @@ export function ChatView({
             placeholder={
               isDestroyed
                 ? "This conversation was permanently destroyed."
-                : "Message..."
+                : "Type a message..."
             }
             disabled={isDestroyed}
             aria-label="Type an encrypted message"
           />
 
-          <span
-            className={`composer-indicator ${isDestroyed ? "lock-destroyed" : "lock-active"}`}
-            title={
-              isDestroyed
-                ? "Conversation Session Destroyed"
-                : "End-to-End Encrypted Transport"
-            }
-          >
-            <Icon name={isDestroyed ? "trash" : "lock"} size={15} />
-          </span>
-
-          <button
-            type="button"
-            className="composer-icon-btn"
-            onClick={onOpenInfo}
-            disabled={isDestroyed}
-            aria-label="Send ephemeral photo"
-            title="Camera (preview)"
-          >
-            <Icon name="camera" size={17} />
-          </button>
-
-          <button
-            type="button"
-            className="composer-icon-btn"
-            onClick={onOpenInfo}
-            disabled={isDestroyed}
-            aria-label="Send ephemeral voice note"
-            title="Voice note (preview)"
-          >
-            <Icon name="mic" size={17} />
-          </button>
-
           <button
             type="submit"
-            className="send-button"
+            className={`send-button ${inputText.trim() ? "ready" : ""}`}
             disabled={isDestroyed || !inputText.trim()}
             aria-label="Send message"
           >
             <Icon name="send" size={16} />
           </button>
         </form>
-
-        <div className="composer-caption">
-          <span className="caption-left">
-            <span className="caption-dot" />
-            <span>
-              {isDestroyed
-                ? "Session Destroyed · Generation advanced and ciphertexts purged"
-                : isKeyReady
-                ? `End-to-End Encrypted · ${activeTimer} auto-purge`
-                : "Awaiting Peer Key · Sync in progress"}
-            </span>
-          </span>
-          <span className="caption-right">
-            <span>
-              {isLive
-                ? "Phase 13 · Production Ready"
-                : "Phase 1 UI Preview · Memory only"}
-            </span>
-          </span>
-        </div>
       </div>
     </section>
   );
