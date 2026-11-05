@@ -3,7 +3,7 @@ import { Icon } from "@/components/icons";
 
 type DestroyModalProps = {
   contactName: string;
-  onConfirmDestroy: () => void;
+  onConfirmDestroy: (permanentlyUnpair: boolean) => void;
   onClose: () => void;
 };
 
@@ -41,11 +41,10 @@ export function DestroyModal({
           <div className="destroy-symbol">
             <Icon name="trash" size={26} />
           </div>
-          <p className="eyebrow danger-text">IRREVERSIBLE ACTION</p>
-          <h2 id="destroy-dialog-title">Destroy Chat for Both?</h2>
+          <p className="eyebrow danger-text">INSTANT ZERO-PLAINTEXT PURGE</p>
+          <h2 id="destroy-dialog-title">Destroy Chat History?</h2>
           <p className="modal-copy">
-            This will permanently revoke the conversation session for you and{" "}
-            <strong>{contactName}</strong>.
+            Wipe all past messages for you and <strong>{contactName}</strong>.
           </p>
         </div>
 
@@ -53,22 +52,19 @@ export function DestroyModal({
           <div className="implication-item">
             <span className="dot danger-dot" />
             <span>
-              All encrypted message records will be wiped from transport
-              storage immediately.
+              All message records are wiped from transport storage and decrypted RAM caches immediately.
             </span>
           </div>
           <div className="implication-item">
             <span className="dot danger-dot" />
             <span>
-              The conversation generation will advance; offline devices will
-              discard all cached messages upon reconnection.
+              The cryptographic generation advances, rendering all previous ciphertexts unrecoverable.
             </span>
           </div>
           <div className="implication-item">
             <span className="dot neutral-dot" />
             <span>
-              <strong>Reality Check:</strong> Cannot guarantee deletion of
-              external screenshots or photos taken with another device.
+              <strong>Choose below:</strong> Clear chat messages to continue talking, or permanently unpair.
             </span>
           </div>
         </div>
@@ -79,18 +75,30 @@ export function DestroyModal({
             checked={confirmed}
             onChange={(e) => setConfirmed(e.target.checked)}
           />
-          <span>I understand this action cannot be undone.</span>
+          <span>I confirm I want to wipe all past chat messages.</span>
         </label>
 
-        <div className="modal-actions-column">
+        <div className="modal-actions-column" style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          <button
+            type="button"
+            className="primary-button"
+            style={{ width: "100%", justifyContent: "center", padding: "0.75rem" }}
+            disabled={!confirmed}
+            onClick={() => onConfirmDestroy(false)}
+          >
+            <Icon name="trash" size={17} />
+            <span>Wipe All Messages (Keep Chat Active)</span>
+          </button>
+
           <button
             type="button"
             className="danger-modal-button"
+            style={{ width: "100%", justifyContent: "center", padding: "0.65rem", opacity: confirmed ? 0.9 : 0.4 }}
             disabled={!confirmed}
-            onClick={onConfirmDestroy}
+            onClick={() => onConfirmDestroy(true)}
           >
-            <Icon name="trash" size={17} />
-            <span>Permanently Destroy Conversation</span>
+            <Icon name="close" size={16} />
+            <span>Permanently Unpair &amp; End Chat</span>
           </button>
 
           <button type="button" className="text-cancel-btn" onClick={onClose}>

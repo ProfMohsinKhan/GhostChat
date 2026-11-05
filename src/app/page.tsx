@@ -551,17 +551,24 @@ function AuthenticatedWorkspace({
     notify("Encrypted message added to local session memory.");
   }
 
-  async function handleConfirmDestroy() {
+  async function handleConfirmDestroy(permanentlyUnpair: boolean = false) {
     if (currentPairing) {
       try {
         await destroyConversationForBoth({
           conversationId: currentPairing.id,
           currentGeneration: currentPairing.generation ?? 1,
           currentUserUid: uid,
+          permanentlyUnpair,
         });
-        notify(
-          "Conversation permanently destroyed for both users. Generation bumped and all records purged."
-        );
+        if (permanentlyUnpair) {
+          notify(
+            "Conversation permanently destroyed for both users. Generation bumped and all records purged."
+          );
+        } else {
+          notify(
+            "All messages wiped for both users! Generation bumped; chat remains open."
+          );
+        }
       } catch (err) {
         notify(
           err instanceof Error ? err.message : "Failed to destroy conversation."

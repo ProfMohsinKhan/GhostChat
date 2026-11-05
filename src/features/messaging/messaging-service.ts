@@ -319,16 +319,18 @@ export async function destroyConversationForBoth({
   conversationId,
   currentGeneration = 1,
   currentUserUid,
+  permanentlyUnpair = false,
 }: {
   conversationId: string;
   currentGeneration?: number;
   currentUserUid: string;
+  permanentlyUnpair?: boolean;
 }): Promise<void> {
   const { database } = getFirebaseClient();
   const nextGen = currentGeneration + 1;
 
   const updates: Record<string, unknown> = {
-    [`conversations/${conversationId}/state`]: "destroyed",
+    [`conversations/${conversationId}/state`]: permanentlyUnpair ? "destroyed" : "active",
     [`conversations/${conversationId}/generation`]: nextGen,
     [`conversations/${conversationId}/destroyedAt`]: serverTimestamp(),
     [`conversations/${conversationId}/destroyedBy`]: currentUserUid,
