@@ -1,0 +1,10 @@
+node_modules/
+.next/
+out/
+build/
+coverage/
+.firebase/
+firebase-debug.log
+*.tsbuildinfo
+.env*
+!.env.example

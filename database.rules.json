@@ -1,0 +1,75 @@
+{
+  "rules": {
+    "conversations": {
+      "$conversationId": {
+        ".read": "auth != null && data.exists() && (data.child('ownerUid').val() == auth.uid || data.child('acceptedBy').val() == auth.uid || (data.child('state').val() == 'pending' && !data.child('acceptedBy').exists() && data.child('expiresAt').val() > now && data.child('ownerUid').val() != auth.uid))",
+        ".write": "auth != null && ( (!data.exists() && newData.child('ownerUid').val() == auth.uid && newData.child('state').val() == 'pending' && !newData.child('acceptedBy').exists() && newData.child('createdAt').val() >= now - 60000 && newData.child('createdAt').val() <= now + 5000 && newData.child('expiresAt').val() > now) || (data.exists() && data.child('state').val() == 'pending' && !data.child('acceptedBy').exists() && data.child('expiresAt').val() > now && data.child('ownerUid').val() != auth.uid && newData.child('ownerUid').val() == data.child('ownerUid').val() && newData.child('createdAt').val() == data.child('createdAt').val() && newData.child('expiresAt').val() == data.child('expiresAt').val() && newData.child('state').val() == 'active' && newData.child('acceptedBy').val() == auth.uid) || (data.exists() && data.child('state').val() == 'active' && (data.child('ownerUid').val() == auth.uid || data.child('acceptedBy').val() == auth.uid) && newData.child('ownerUid').val() == data.child('ownerUid').val() && newData.child('acceptedBy').val() == data.child('acceptedBy').val() && newData.child('state').val() == 'active' && newData.child('createdAt').val() == data.child('createdAt').val()) || (data.exists() && (data.child('ownerUid').val() == auth.uid || data.child('acceptedBy').val() == auth.uid) && newData.child('ownerUid').val() == data.child('ownerUid').val() && newData.child('acceptedBy').val() == data.child('acceptedBy').val() && newData.child('createdAt').val() == data.child('createdAt').val() && newData.child('state').val() == 'destroyed' && newData.child('destroyedBy').val() == auth.uid && newData.child('destroyedAt').val() >= now - 60000 && newData.child('destroyedAt').val() <= now + 5000 && (!data.child('generation').exists() || newData.child('generation').val() > data.child('generation').val())) )",
+        ".validate": "$conversationId.matches(/^[A-Za-z0-9_-]{22}$/) && newData.hasChildren(['ownerUid', 'state', 'createdAt', 'expiresAt']) && newData.child('ownerUid').isString() && newData.child('ownerUid').val().length > 0 && newData.child('state').isString() && newData.child('createdAt').isNumber() && newData.child('expiresAt').isNumber() && newData.child('expiresAt').val() > newData.child('createdAt').val() && newData.child('expiresAt').val() <= newData.child('createdAt').val() + 86400000 && ((!newData.child('acceptedBy').exists() && newData.child('state').val() == 'pending') || (newData.child('acceptedBy').isString() && newData.child('acceptedBy').val() != newData.child('ownerUid').val() && (newData.child('state').val() == 'active' || newData.child('state').val() == 'destroyed'))) && (!newData.child('generation').exists() || (newData.child('generation').isNumber() && newData.child('generation').val() >= 1)) && (!newData.child('ownerAgreementKey').exists() || (newData.child('ownerAgreementKey').isString() && newData.child('ownerAgreementKey').val().length >= 43 && newData.child('ownerAgreementKey').val().length <= 128)) && (!newData.child('acceptedAgreementKey').exists() || (newData.child('acceptedAgreementKey').isString() && newData.child('acceptedAgreementKey').val().length >= 43 && newData.child('acceptedAgreementKey').val().length <= 128)) && (!newData.child('destroyedAt').exists() || newData.child('destroyedAt').isNumber()) && (!newData.child('destroyedBy').exists() || newData.child('destroyedBy').isString()) && (!data.exists() || (newData.child('ownerUid').val() == data.child('ownerUid').val() && newData.child('createdAt').val() == data.child('createdAt').val() && newData.child('expiresAt').val() == data.child('expiresAt').val()))",
+        "ownerUid": { ".validate": "newData.isString()" },
+        "state": { ".validate": "newData.val() == 'pending' || newData.val() == 'active' || newData.val() == 'destroyed'" },
+        "createdAt": { ".validate": "newData.isNumber()" },
+        "expiresAt": { ".validate": "newData.isNumber()" },
+        "acceptedBy": { ".validate": "newData.isString()" },
+        "generation": { ".validate": "newData.isNumber()" },
+        "ownerAgreementKey": { ".validate": "newData.isString()" },
+        "acceptedAgreementKey": { ".validate": "newData.isString()" },
+        "destroyedAt": { ".validate": "newData.isNumber()" },
+        "destroyedBy": { ".validate": "newData.isString()" },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "userConversations": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        "$conversationId": {
+          ".write": "auth != null && auth.uid == $uid && !data.exists() && newData.val() == true && $conversationId.matches(/^[A-Za-z0-9_-]{22}$/)",
+          ".validate": "newData.isBoolean() && newData.val() == true"
+        }
+      }
+    },
+    "messages": {
+      "$conversationId": {
+        "$generation": {
+          ".read": "auth != null && root.child('conversations').child($conversationId).exists() && (root.child('conversations').child($conversationId).child('ownerUid').val() == auth.uid || root.child('conversations').child($conversationId).child('acceptedBy').val() == auth.uid) && root.child('conversations').child($conversationId).child('state').val() == 'active'",
+          ".write": "auth != null && root.child('conversations').child($conversationId).exists() && (root.child('conversations').child($conversationId).child('ownerUid').val() == auth.uid || root.child('conversations').child($conversationId).child('acceptedBy').val() == auth.uid) && !newData.exists()",
+          "$messageId": {
+            ".write": "auth != null && root.child('conversations').child($conversationId).exists() && (root.child('conversations').child($conversationId).child('ownerUid').val() == auth.uid || root.child('conversations').child($conversationId).child('acceptedBy').val() == auth.uid) && ((!data.exists() && root.child('conversations').child($conversationId).child('state').val() == 'active' && newData.exists() && newData.child('senderUid').val() == auth.uid) || (data.exists() && newData.exists() && root.child('conversations').child($conversationId).child('state').val() == 'active' && data.child('senderUid').val() != auth.uid && newData.child('delivered').val() == true) || (data.exists() && !newData.exists() && (data.child('senderUid').val() == auth.uid || data.child('expiresAt').val() <= now || root.child('conversations').child($conversationId).child('state').val() != 'active')))",
+            ".validate": "newData.hasChildren(['ciphertext', 'iv', 'sequence', 'expiresAt', 'senderUid', 'ephemeralPublicKey']) && newData.child('ciphertext').isString() && newData.child('ciphertext').val().length <= 65536 && (!newData.child('senderCiphertext').exists() || (newData.child('senderCiphertext').isString() && newData.child('senderCiphertext').val().length <= 65536)) && newData.child('iv').isString() && newData.child('iv').val().length == 16 && newData.child('sequence').isNumber() && newData.child('sequence').val() >= 1 && newData.child('expiresAt').isNumber() && newData.child('senderUid').isString() && newData.child('ephemeralPublicKey').isString() && newData.child('ephemeralPublicKey').val().length >= 43 && newData.child('ephemeralPublicKey').val().length <= 128 && (!data.exists() || (newData.child('ciphertext').val() == data.child('ciphertext').val() && newData.child('iv').val() == data.child('iv').val() && newData.child('senderUid').val() == data.child('senderUid').val() && newData.child('ephemeralPublicKey').val() == data.child('ephemeralPublicKey').val()))",
+            "ciphertext": { ".validate": "newData.isString()" },
+            "senderCiphertext": { ".validate": "newData.isString()" },
+            "iv": { ".validate": "newData.isString()" },
+            "sequence": { ".validate": "newData.isNumber()" },
+            "expiresAt": { ".validate": "newData.isNumber()" },
+            "senderUid": { ".validate": "newData.isString()" },
+            "ephemeralPublicKey": { ".validate": "newData.isString()" },
+            "createdAt": { ".validate": "newData.isNumber()" },
+            "delivered": { ".validate": "newData.isBoolean()" },
+            "$other": {
+              ".validate": false
+            }
+          }
+        }
+      }
+    },
+    "presence": {
+      "$conversationId": {
+        ".read": "auth != null && root.child('conversations').child($conversationId).exists() && (root.child('conversations').child($conversationId).child('ownerUid').val() == auth.uid || root.child('conversations').child($conversationId).child('acceptedBy').val() == auth.uid) && root.child('conversations').child($conversationId).child('state').val() == 'active'",
+        "$uid": {
+          ".write": "auth != null && auth.uid == $uid && root.child('conversations').child($conversationId).exists() && (root.child('conversations').child($conversationId).child('ownerUid').val() == auth.uid || root.child('conversations').child($conversationId).child('acceptedBy').val() == auth.uid) && root.child('conversations').child($conversationId).child('state').val() == 'active'",
+          ".validate": "newData.hasChildren(['status']) && (newData.child('status').val() == 'online' || newData.child('status').val() == 'offline')"
+        }
+      }
+    },
+    "typing": {
+      "$conversationId": {
+        ".read": "auth != null && root.child('conversations').child($conversationId).exists() && (root.child('conversations').child($conversationId).child('ownerUid').val() == auth.uid || root.child('conversations').child($conversationId).child('acceptedBy').val() == auth.uid) && root.child('conversations').child($conversationId).child('state').val() == 'active'",
+        "$uid": {
+          ".write": "auth != null && auth.uid == $uid && root.child('conversations').child($conversationId).exists() && (root.child('conversations').child($conversationId).child('ownerUid').val() == auth.uid || root.child('conversations').child($conversationId).child('acceptedBy').val() == auth.uid) && root.child('conversations').child($conversationId).child('state').val() == 'active'",
+          ".validate": "newData.isBoolean() || (newData.hasChildren(['isTyping']) && newData.child('isTyping').isBoolean())"
+        }
+      }
+    }
+  }
+}

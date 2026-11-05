@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <rect width="192" height="192" rx="42" fill="#07131b" />
+  <circle cx="96" cy="96" r="76" fill="url(#ghost-glow)" opacity="0.18" />
+  <defs>
+    <radialGradient id="ghost-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#31d7bd" />
+      <stop offset="100%" stop-color="#07131b" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="ghost-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#31d7bd" />
+      <stop offset="100%" stop-color="#0c9c8e" />
+    </linearGradient>
+  </defs>
+  <!-- Ghost Icon Body -->
+  <path
+    d="M96 44 C68 44 52 64 52 92 L52 144 L66 132 L81 144 L96 132 L111 144 L126 132 L140 144 L140 92 C140 64 124 44 96 44 Z"
+    fill="url(#ghost-grad)"
+  />
+  <!-- Eyes -->
+  <circle cx="82" cy="84" r="7" fill="#07131b" />
+  <circle cx="110" cy="84" r="7" fill="#07131b" />
+  <circle cx="84" cy="82" r="2.5" fill="#ffffff" />
+  <circle cx="112" cy="82" r="2.5" fill="#ffffff" />
+</svg>

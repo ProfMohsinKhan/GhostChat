@@ -1,0 +1,41 @@
+{
+  "name": "ghostchat",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test:identity": "tsx --test tests/identity.test.ts",
+    "test:crypto": "tsx --test tests/crypto-session.test.ts",
+    "test:messaging": "tsx --test tests/realtime-messaging.test.ts",
+    "test:expiry": "tsx --test tests/expiry-cleanup.test.ts",
+    "test:destroy": "tsx --test tests/destroy-generation.test.ts",
+    "test:presence": "tsx --test tests/presence-typing.test.ts",
+    "test:verification": "tsx --test tests/device-verification.test.ts",
+    "test:pwa": "tsx --test tests/pwa-shell.test.ts",
+    "test:hardening": "tsx --test tests/security-hardening.test.ts",
+    "test:rules": "firebase emulators:exec --project demo-ghostchat-phase3 --only database \"node --test tests/database.rules.test.mjs\""
+  },
+  "dependencies": {
+    "firebase": "^13.2.0",
+    "next": "^15.5.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.7",
+    "@firebase/rules-unit-testing": "^6.0.0",
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "eslint": "^9.28.0",
+    "eslint-config-next": "^15.5.0",
+    "fake-indexeddb": "^6.2.7",
+    "firebase-tools": "^15.34.2",
+    "tsx": "^4.23.15",
+    "typescript": "^5.8.3"
+  }
+}
