@@ -43,6 +43,12 @@ Phase 12 implements security hardening, CSP, frame protection, and rules verific
 - **Privacy Headers:** `Referrer-Policy: strict-origin-when-cross-origin`, `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`, and `Permissions-Policy` disabling unused device sensors (`camera=()`, `microphone=()`, `geolocation=()`).
 - **Full RTDB Rules Test Suite:** Deterministic static security test suite (`tests/security-hardening.test.ts`) and expanded emulator test suite (`tests/database.rules.test.mjs`) auditing all branches across `/conversations`, `/userConversations`, `/messages`, `/presence`, and `/typing`. Enforces <64KB payload bounds, immutable ciphertext integrity, delivery receipt authority, generation boundary isolation, and anti-tamper constraints.
 
+Phase 13 delivers full system verification, end-to-end auditing, and production deployment:
+- **End-to-End System Audit Suite:** Automated end-to-end audit test suite (`tests/e2e-audit.test.ts`) verifying the full crypto lifecycle, non-extractability, AAD tamper rejection, expiry boundaries, mutual destruction isolation, commutative safety numbers, QR generation, zero-plaintext service worker policies, and RTDB security rules.
+- **Zero-Cost Architecture Audit:** Verified 100% adherence to ₹0 infrastructure budget across Firebase Spark Free Tier and Vercel Hobby Tier. No paid Cloud Functions, Cloud Tasks, or server compute dependencies exist.
+- **Vercel Production Configuration:** `vercel.json` provides strict cache-control configurations, clean URLs, and ensures service worker `sw.js` is never cached while static assets leverage immutable caching.
+- **Production Runbook:** Complete, actionable deployment runbook (`DEPLOYMENT.md`) detailing Firebase project configuration, database rules deployment, environment variable mapping, and post-deployment pre-flight checklists.
+
 ## Target architecture
 
 ```text

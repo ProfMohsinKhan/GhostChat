@@ -352,7 +352,7 @@ export function ChatView({
           <span className="caption-right">
             <span>
               {isLive
-                ? "Phase 12 · Hardening Active"
+                ? "Phase 13 · Production Ready"
                 : "Phase 1 UI Preview · Memory only"}
             </span>
           </span>

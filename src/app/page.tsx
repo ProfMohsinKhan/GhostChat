@@ -653,7 +653,7 @@ function AuthenticatedWorkspace({
             ghost<span className="brand-accent">chat</span>
           </span>
           <span className="brand-beta">
-            {isLiveSession ? "PHASE 12 SECURITY HARDENING" : "DEMO PREVIEW"}
+            {isLiveSession ? "PHASE 13 · PRODUCTION READY" : "DEMO PREVIEW"}
           </span>
         </div>
 

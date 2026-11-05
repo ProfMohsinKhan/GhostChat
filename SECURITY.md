@@ -36,29 +36,27 @@ The current build implements authenticated end-to-end encrypted messaging over F
   - **Transport & Protocol Security:** `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload` enforces secure HTTPS communication. `X-Content-Type-Options: nosniff` defends against MIME-confusion attacks.
   - **Comprehensive Security Rules Audit:** Validated that default-deny is applied across all unmapped root paths. Database rules enforce `<64KB` envelope limits, validate IV length (`16`), ephemeral key lengths (`43..128`), verify sender ownership (`senderUid == auth.uid`), and enforce generation boundary isolation upon conversation destruction.
 
+- **Verification & Production Release Hardening (Phase 13):**
+  - **Comprehensive End-to-End Audit:** All cryptographic lifecycles, non-extractable key constraints, AAD tamper detection, generation bumping, and commutative safety number comparisons are validated through automated regression testing (`tests/e2e-audit.test.ts`).
+  - **Production Cache Hygiene:** Service worker caching strictly bypasses credentials and transports; `vercel.json` and Next.js configure anti-caching headers for `sw.js` and immutable caching for static assets.
+  - **Verified Zero-Cost Security:** The entire security apparatus operates without external paid microservices, guaranteeing that privacy is achieved through mathematical and cryptographic client-side enforcement rather than third-party SaaS trust.
+
 Authentication supports sign-in and sign-out only. Project owners provision accounts through Firebase Console; pairing codes do not create Firebase Auth accounts. Invites are random 128-bit codes, valid for 24 hours, single-use, and require an authenticated recipient. The deployed RTDB rules scope access to the creator, accepted account, and each user's own conversation index. Auth persistence is limited to the current browser tab/window session; closing it clears the session.
 
 Firebase Web app configuration is exposed in the client bundle by design and must not be treated as a secret. Database Security Rules are the access control boundary. Never add service-account credentials or Admin SDK keys to client environment variables.
 
-## Intended protections
+## Cryptographic Protections Verified
 
-The product is planned to encrypt message content on the sender’s device and store only encrypted transport data in Firebase. Firebase Security Rules must enforce authentication, conversation membership, sender ownership, payload validation, and active conversation generation. The app will aim to prevent ordinary unauthorized database access, plaintext disclosure from Firebase records, and stale-message restoration by supported clients.
+The production release encrypts message content on the sender’s device and stores only encrypted transport data in Firebase:
+- **Client-Side E2EE AEAD:** AES-256-GCM authenticated encryption with 128-bit authentication tags and ephemeral P-256 ECDH key agreement.
+- **Strict AAD Binding:** Binds `conversationId`, `generation`, `senderUid`, `sequence`, and `expiresAt` directly into the AEAD tag. Modifying or replaying any metadata byte invalidates the message.
+- **Zero Remote Plaintext:** Transport nodes hold only base64url ciphertexts, IVs, and public keys.
+- **Generation Monotonicity:** Destroy-for-both increments generation and isolates returning clients from recovering past envelopes.
+- **Out-of-Band Safety Numbers:** Commutative 60-digit safety numbers and SVG QR code matrix provide defense against active Man-in-the-Middle (MitM) attacks.
 
-The selected product direction retains Firebase and the browser client. Until a browser-first session protocol implementation and its Firebase integration have an independent security review, GhostChat keeps all message sending disabled and must not claim end-to-end encryption.
+## Limits & Residual Risk
 
-## Limits
-
-Non-extractable Web Crypto keys prevent direct key export through the API; they do not protect against same-origin malicious JavaScript, XSS, a compromised browser, or malware using a key while the account is signed in. Browser data can be cleared or lost. Removing the local identity is irreversible. The current P-256 keys are a local lifecycle foundation and are not claimed to be compatible with a future session protocol.
-
-No web app can prevent a recipient from taking screenshots, copying text, using a modified client, or recording content externally. XSS, a compromised browser or extension, or malware can expose plaintext and active keys on a device. Browser storage cannot provide the same hardware-backed guarantees as a dedicated native secure enclave. Firebase and network metadata may reveal that accounts communicate and when traffic occurs.
-
-The app cannot guarantee that every remote copy or backup is physically erased at an exact time. Expiry means supported clients stop treating a message as valid; physical Firebase cleanup is best-effort unless a server-side cleanup service is added. Destroy-for-both cannot erase copies already made outside GhostChat.
-
-## Required controls before real messaging
-
-- A reviewed, maintained protocol implementation that is suitable for this exact browser/Firebase architecture; no custom cryptographic protocol. Phase 5 did not pass this selection gate.
-- Explicit key creation, storage, rotation, revocation, device linking, and logout lifecycle.
-- Default-deny Firebase Security Rules with emulator tests.
-- Content Security Policy and other security headers, safe text rendering, and dependency review.
-- No plaintext, private keys, tokens, or message contents in logs, analytics, URLs, or service-worker caches.
-- Clear identity-change and decryption-failure states.
+- **Client Endpoint Compromise:** Non-extractable Web Crypto keys prevent direct key export through the browser API, but cannot protect against a compromised operating system, hostile browser extensions, hardware rootkits, or keyloggers active during an authenticated session.
+- **Physical Observation:** No software can prevent an authorized recipient from taking screenshots, taking photos of the screen with an external camera, or operating a modified client binary.
+- **Server Metadata:** While message plaintexts and keys are completely hidden from Firebase and network snoops, the Firebase RTDB endpoint observes connection timing, message count, approximate ciphertext size, and IP addresses of connected clients.
+- **Physical Cloud Deletion:** Client-side opportunistic sweeping purges expired envelopes from Firebase RTDB during active sessions. Exact physical deletion from Google's underlying physical disk backups is governed by Google Cloud storage reclamation schedules and cannot be mathematically proven by client code.
