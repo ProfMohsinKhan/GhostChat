@@ -119,7 +119,7 @@ export function AuthScreen({
               <Icon name="shieldCheck" size={18} />
             </span>
             <p>
-              <strong>Phase 2 · Firebase Auth &amp; Session Boundary</strong>
+              <strong>Zero-Knowledge Authentication · Session Boundary</strong>
               <br />
               Email &amp; password authentication with tab-scoped session persistence.
               No plaintext is ever stored in database records.
@@ -224,7 +224,7 @@ export function AuthScreen({
                 className="text-demo-btn"
                 onClick={onOpenDemo}
               >
-                No account yet? Explore the Phase 1 UI Shell in Demo Mode →
+                No account yet? Explore GhostChat in Demo Mode →
               </button>
             </div>
           )}
