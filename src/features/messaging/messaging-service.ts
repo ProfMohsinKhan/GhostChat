@@ -63,6 +63,8 @@ export async function sendEncryptedMessage({
   expiryDurationMs = DEFAULT_MESSAGE_EXPIRY_MS,
   sequence,
   replyTo,
+  imageData,
+  viewOnce,
 }: {
   conversationId: string;
   generation: number;
@@ -73,15 +75,23 @@ export async function sendEncryptedMessage({
   expiryDurationMs?: number;
   sequence?: number;
   replyTo?: QuotedMessage;
+  imageData?: string;
+  viewOnce?: boolean;
 }): Promise<string> {
   const { database } = getFirebaseClient();
   const now = Date.now();
   const expiresAt = now + expiryDurationMs;
   const seq = sequence ?? Math.floor(now / 1000);
 
-  const rawPayload = replyTo
-    ? JSON.stringify({ text: plaintext, replyTo })
-    : plaintext;
+  const rawPayload =
+    replyTo || imageData || viewOnce
+      ? JSON.stringify({
+          text: plaintext,
+          replyTo,
+          imageData,
+          viewOnce,
+        })
+      : plaintext;
 
   const envelope = await secureEncrypt(
     senderUid,
@@ -223,16 +233,25 @@ export function subscribeToLiveMessages({
 
         let displayText = decryptedText;
         let replyTo: QuotedMessage | undefined = undefined;
+        let imageData: string | undefined = undefined;
+        let viewOnce: boolean | undefined = undefined;
 
-        if (decryptedText.startsWith("{") && decryptedText.includes('"text":')) {
+        if (
+          decryptedText.startsWith("{") &&
+          (decryptedText.includes('"text":') || decryptedText.includes('"imageData":'))
+        ) {
           try {
             const parsed = JSON.parse(decryptedText) as {
               text?: string;
               replyTo?: QuotedMessage;
+              imageData?: string;
+              viewOnce?: boolean;
             };
-            if (typeof parsed.text === "string") {
-              displayText = parsed.text;
+            if (typeof parsed.text === "string" || typeof parsed.imageData === "string") {
+              displayText = parsed.text ?? "";
               replyTo = parsed.replyTo;
+              imageData = parsed.imageData;
+              viewOnce = parsed.viewOnce;
             }
           } catch {
             // fallback to raw text
@@ -244,6 +263,8 @@ export function subscribeToLiveMessages({
           sender: isMe ? "me" : "them",
           text: displayText,
           replyTo,
+          imageData,
+          viewOnce,
           time: timeStr,
           timestamp: createdAtMs,
           delivered: Boolean(item.delivered),
@@ -387,4 +408,31 @@ export async function reopenConversation({
     [`conversations/${conversationId}/generation`]: nextGen,
   };
   await update(ref(database), updates);
+}
+
+/**
+ * Permanently burns a View Once message from volatile cache and removes the node from RTDB.
+ */
+export async function burnViewOnceMessage({
+  conversationId,
+  generation,
+  messageId,
+}: {
+  conversationId: string;
+  generation: number;
+  messageId: string;
+}): Promise<void> {
+  const { database } = getFirebaseClient();
+  const cacheKey = `${conversationId}:${generation}:${messageId}`;
+  decryptedMessageCache.delete(cacheKey);
+
+  try {
+    const messageRef = ref(
+      database,
+      `messages/${conversationId}/${generation}/${messageId}`
+    );
+    await remove(messageRef);
+  } catch {
+    // Silently continue if already removed by other participant
+  }
 }

@@ -7,6 +7,7 @@ import {
   sweepExpiredMessages,
   DEFAULT_MESSAGE_EXPIRY_MS,
   clearConversationDecryptedCache,
+  burnViewOnceMessage,
 } from "./messaging-service";
 import type { LiveChatMessage } from "@/features/crypto/types";
 import type { QuotedMessage } from "@/features/chat/types";
@@ -119,7 +120,9 @@ export function useLiveMessages({
     async (
       text: string,
       expiryDurationMs = DEFAULT_MESSAGE_EXPIRY_MS,
-      replyTo?: QuotedMessage
+      replyTo?: QuotedMessage,
+      imageData?: string,
+      viewOnce?: boolean
     ) => {
       if (isDestroyed) {
         throw new Error(
@@ -149,6 +152,8 @@ export function useLiveMessages({
         plaintext: text,
         expiryDurationMs,
         replyTo,
+        imageData,
+        viewOnce,
       });
     },
     [
@@ -159,6 +164,18 @@ export function useLiveMessages({
       senderAgreementKey,
       isDestroyed,
     ]
+  );
+
+  const burn = useCallback(
+    async (messageId: string) => {
+      if (!conversationId) return;
+      await burnViewOnceMessage({
+        conversationId,
+        generation,
+        messageId,
+      });
+    },
+    [conversationId, generation]
   );
 
   const clearVolatile = useCallback(() => {
@@ -173,6 +190,7 @@ export function useLiveMessages({
     loading,
     error,
     sendMessage: send,
+    burnMessage: burn,
     clearVolatileMessages: clearVolatile,
     isKeyReady: Boolean(recipientAgreementKey && senderAgreementKey),
   };

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import type { Contact, QuotedMessage, SampleMessage } from "./types";
 import { Icon } from "@/components/icons";
 import { useScreenshotProtection } from "@/features/security/screenshot-protection";
+import { compressImageForEphemeralTransport } from "./image-compressor";
 
 type ChatViewProps = {
   contact: Contact;
@@ -10,7 +11,12 @@ type ChatViewProps = {
   onOpenInfo: () => void;
   onOpenEphemeralModal: () => void;
   onOpenDestroyModal: () => void;
-  onSendMessage: (text: string, replyTo?: QuotedMessage) => void;
+  onSendMessage: (
+    text: string,
+    replyTo?: QuotedMessage,
+    imageData?: string,
+    viewOnce?: boolean
+  ) => void;
   onTyping?: (isTyping: boolean) => void;
   isLive?: boolean;
   isKeyReady?: boolean;
@@ -20,6 +26,7 @@ type ChatViewProps = {
   onDeleteConversation?: () => void;
   antiScreenshotEnabled?: boolean;
   onScreenshotAttempt?: (msg: string) => void;
+  onBurnMessage?: (messageId: string) => void;
 };
 
 export function ChatView({
@@ -37,6 +44,7 @@ export function ChatView({
   onDeleteConversation,
   antiScreenshotEnabled = true,
   onScreenshotAttempt,
+  onBurnMessage,
 }: ChatViewProps) {
   const [inputText, setInputText] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
@@ -45,10 +53,19 @@ export function ChatView({
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [stealthMode, setStealthMode] = useState<boolean>(true);
   const [replyingTo, setReplyingTo] = useState<QuotedMessage | null>(null);
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [isViewOnce, setIsViewOnce] = useState<boolean>(true);
+  const [imageCaption, setImageCaption] = useState<string>("");
+  const [activeViewOnce, setActiveViewOnce] = useState<{
+    id: string;
+    url: string;
+    caption?: string;
+  } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { isScreenObscured, setIsScreenObscured } = useScreenshotProtection({
     enabled: antiScreenshotEnabled,
@@ -114,11 +131,65 @@ export function ChatView({
     }
   }
 
+  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressedDataUrl = await compressImageForEphemeralTransport(file);
+      setPendingImage(compressedDataUrl);
+      setIsViewOnce(true);
+      setImageCaption("");
+    } catch (err) {
+      alert("Could not process image: " + (err instanceof Error ? err.message : "Invalid image"));
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  function handleSendPendingImage() {
+    if (!pendingImage) return;
+    onSendMessage(
+      imageCaption.trim(),
+      replyingTo ?? undefined,
+      pendingImage,
+      isViewOnce
+    );
+    setPendingImage(null);
+    setImageCaption("");
+    setReplyingTo(null);
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 40);
+  }
+
+  function handleOpenViewOnce(message: SampleMessage) {
+    if (!message.imageData || message.isOpened) return;
+    setActiveViewOnce({
+      id: message.id,
+      url: message.imageData,
+      caption: message.text,
+    });
+  }
+
+  function handleCloseViewOnce() {
+    if (activeViewOnce) {
+      onBurnMessage?.(activeViewOnce.id);
+      const foundMsg = contact.messages.find((m) => m.id === activeViewOnce.id);
+      if (foundMsg) {
+        foundMsg.isOpened = true;
+        foundMsg.imageData = undefined;
+      }
+      setActiveViewOnce(null);
+    }
+  }
+
   // Sync editedName when contact changes
   useEffect(() => {
     setEditedName(contact.name);
     setIsEditingName(false);
     setReplyingTo(null);
+    setPendingImage(null);
+    setActiveViewOnce(null);
   }, [contact.id, contact.name]);
 
   function handleSend(e: React.FormEvent) {
@@ -441,6 +512,7 @@ export function ChatView({
             stealthMode={stealthMode}
             onReply={handleInitiateReply}
             onJumpToMessage={handleJumpToMessage}
+            onOpenViewOnce={handleOpenViewOnce}
           />
         ))}
 
@@ -557,6 +629,23 @@ export function ChatView({
           </button>
 
           <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={handleImageSelect}
+          />
+          <button
+            type="button"
+            className="composer-camera-btn"
+            onClick={() => fileInputRef.current?.click()}
+            title="Send View Once photo"
+            aria-label="Send ephemeral photo"
+          >
+            <Icon name="camera" size={18} />
+          </button>
+
+          <input
             ref={inputRef}
             type="text"
             value={inputText}
@@ -592,6 +681,135 @@ export function ChatView({
           </button>
         </form>
       </div>
+
+      {/* Pre-Send View Once Photo Dialog */}
+      {pendingImage && (
+        <div className="view-once-preview-backdrop" role="dialog" aria-modal="true">
+          <div className="view-once-preview-card">
+            <div className="preview-top-row">
+              <h3>Send Ephemeral Image</h3>
+              <button
+                type="button"
+                className="preview-close-button"
+                onClick={() => setPendingImage(null)}
+                title="Cancel"
+                aria-label="Cancel image send"
+              >
+                <Icon name="close" size={16} />
+              </button>
+            </div>
+
+            <div className="preview-thumbnail-container">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={pendingImage}
+                alt="Selected preview"
+                className="preview-thumbnail-img"
+              />
+            </div>
+
+            <div className="preview-view-once-action">
+              <button
+                type="button"
+                className={`view-once-toggle-chip ${isViewOnce ? "active" : ""}`}
+                onClick={() => setIsViewOnce((prev) => !prev)}
+                title="Toggle View Once (Burns upon closing)"
+              >
+                <span className="view-once-circle-badge">1</span>
+                <span>{isViewOnce ? "View Once Active" : "Regular Image"}</span>
+              </button>
+              <span className="view-once-note">
+                {isViewOnce
+                  ? "Burns automatically from memory as soon as viewed."
+                  : "Saved in session until timer expires."}
+              </span>
+            </div>
+
+            <div className="preview-caption-row">
+              <input
+                type="text"
+                value={imageCaption}
+                onChange={(e) => setImageCaption(e.target.value)}
+                placeholder="Add a caption..."
+                maxLength={80}
+                className="preview-caption-input"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleSendPendingImage();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="preview-send-btn primary-button"
+                onClick={handleSendPendingImage}
+                title="Send encrypted photo"
+              >
+                <Icon name="send" size={16} />
+                <span>Send</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen View Once Ephemeral Lightbox */}
+      {activeViewOnce && (
+        <div
+          className="view-once-lightbox"
+          role="dialog"
+          aria-modal="true"
+          onClick={handleCloseViewOnce}
+        >
+          <div className="lightbox-top-bar" onClick={(e) => e.stopPropagation()}>
+            <div className="lightbox-badge">
+              <span className="badge-circle">1</span>
+              <span>View Once Photo · Burns on close</span>
+            </div>
+            <button
+              type="button"
+              className="lightbox-burn-btn"
+              onClick={handleCloseViewOnce}
+              title="Close & Burn photo immediately"
+              aria-label="Close and burn photo"
+            >
+              <Icon name="close" size={20} />
+            </button>
+          </div>
+
+          <div
+            className="lightbox-image-container"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="lightbox-watermark-strip">
+              <span>🔒 GHOSTCHAT CONFIDENTIAL · NO CAPTURE</span>
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={activeViewOnce.url}
+              alt="View Once Ephemeral"
+              className="lightbox-img"
+              onContextMenu={(e) => e.preventDefault()}
+            />
+            {activeViewOnce.caption && (
+              <div className="lightbox-caption">{activeViewOnce.caption}</div>
+            )}
+          </div>
+
+          <div className="lightbox-footer" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="burn-now-btn"
+              onClick={handleCloseViewOnce}
+            >
+              <Icon name="flame" size={16} />
+              <span>Close &amp; Burn Now</span>
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -601,11 +819,13 @@ function MessageBubble({
   stealthMode = false,
   onReply,
   onJumpToMessage,
+  onOpenViewOnce,
 }: {
   message: SampleMessage;
   stealthMode?: boolean;
   onReply?: (msg: SampleMessage) => void;
   onJumpToMessage?: (msgId: string) => void;
+  onOpenViewOnce?: (msg: SampleMessage) => void;
 }) {
   const [isRevealed, setIsRevealed] = useState(false);
 
@@ -685,7 +905,51 @@ function MessageBubble({
       onDoubleClick={() => onReply?.(message)}
     >
       <div className="bubble-wrap">
-        {message.attachment ? (
+        {message.viewOnce ? (
+          <div
+            className={`view-once-card ${message.isOpened ? "opened" : "unopened"} ${
+              isStealth ? "stealth-bubble" : ""
+            } ${isRevealed ? "revealed" : ""}`}
+            onClick={() => {
+              if (!message.isOpened) {
+                onOpenViewOnce?.(message);
+              }
+            }}
+            onPointerDown={handlePointerDown}
+            onPointerUp={handlePointerUp}
+            onPointerLeave={handlePointerLeave}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
+            role="button"
+            tabIndex={message.isOpened ? -1 : 0}
+            title={
+              message.isOpened
+                ? "Photo already viewed and burned"
+                : "Tap to view (Burns after 1 view)"
+            }
+          >
+            <div className="view-once-ring-icon">
+              <span className="ring-number">1</span>
+            </div>
+            <div className="view-once-text-content">
+              <strong className="view-once-title">
+                {message.isOpened ? "Opened" : "Photo"}
+              </strong>
+              <span className="view-once-subtitle">
+                {message.isOpened
+                  ? "Burned from memory"
+                  : isMine
+                  ? "View Once photo sent"
+                  : "View Once · Tap to view"}
+              </span>
+            </div>
+            {message.text && (
+              <div className="view-once-caption-pill">{message.text}</div>
+            )}
+          </div>
+        ) : message.attachment ? (
           <div
             className={`attachment-card ${isStealth ? "stealth-bubble" : ""} ${isRevealed ? "revealed" : ""}`}
             onPointerDown={handlePointerDown}

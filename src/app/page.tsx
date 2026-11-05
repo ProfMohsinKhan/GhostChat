@@ -694,7 +694,12 @@ function AuthenticatedWorkspace({
   const roomsCount = allContacts.filter((c) => c.tab === "rooms").length;
   const requestsCount = allContacts.filter((c) => c.tab === "requests").length;
 
-  async function handleSendMessage(text: string, replyTo?: QuotedMessage) {
+  async function handleSendMessage(
+    text: string,
+    replyTo?: QuotedMessage,
+    imageData?: string,
+    viewOnce?: boolean
+  ) {
     if (isLivePairing) {
       if (!peerAgreementKey) {
         notify("Peer's cryptographic key is still syncing. Wait a moment or ask them to open the app.");
@@ -702,7 +707,7 @@ function AuthenticatedWorkspace({
       }
       try {
         const expiryMs = parseExpiryDurationMs(activeTimer);
-        await live.sendMessage(text, expiryMs, replyTo);
+        await live.sendMessage(text, expiryMs, replyTo, imageData, viewOnce);
       } catch (err) {
         notify(err instanceof Error ? err.message : "Failed to send encrypted message.");
       }
@@ -728,6 +733,8 @@ function AuthenticatedWorkspace({
       delivered: true,
       expiresIn: activeTimer,
       replyTo,
+      imageData,
+      viewOnce,
     };
 
     activeContact.messages.push(newMessage);
@@ -1237,6 +1244,7 @@ function AuthenticatedWorkspace({
           onDeleteConversation={() => handleHideContact(activeContact.id)}
           antiScreenshotEnabled={antiScreenshotEnabled}
           onScreenshotAttempt={(msg) => notify(msg)}
+          onBurnMessage={(msgId) => live.burnMessage(msgId)}
         />
       </div>
 

@@ -20,6 +20,9 @@ export type SampleMessage = {
   isDecrypted?: boolean;
   decryptionError?: boolean;
   replyTo?: QuotedMessage;
+  viewOnce?: boolean;
+  isOpened?: boolean;
+  imageData?: string;
   attachment?: {
     name: string;
     size: string;

@@ -41,5 +41,8 @@ export type LiveChatMessage = {
   isDecrypted: boolean;
   decryptionError?: boolean;
   replyTo?: QuotedMessage;
+  viewOnce?: boolean;
+  isOpened?: boolean;
+  imageData?: string;
 };
 
