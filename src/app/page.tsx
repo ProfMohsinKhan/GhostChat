@@ -104,6 +104,7 @@ export default function Home() {
       status={auth.status}
       isConfigured={auth.isConfigured}
       signIn={auth.signIn}
+      signUp={auth.signUp}
       onBackToOnboarding={() => setUnauthedView("welcome")}
       onOpenDemo={() => setUnauthedView("demo")}
     />

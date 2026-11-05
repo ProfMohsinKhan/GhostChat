@@ -9,6 +9,7 @@ type AuthScreenProps = {
   status: AuthStatus;
   isConfigured: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  signUp?: (email: string, password: string) => Promise<void>;
   onBackToOnboarding?: () => void;
   onOpenDemo?: () => void;
 };
@@ -17,28 +18,60 @@ export function AuthScreen({
   status,
   isConfigured,
   signIn,
+  signUp,
   onBackToOnboarding,
   onOpenDemo,
 }: AuthScreenProps) {
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    setPending(true);
-    try {
-      await signIn(email, password);
-    } catch (signInError) {
-      setError(
-        signInError instanceof Error
-          ? signInError.message
-          : "Sign-in could not be completed."
-      );
-    } finally {
-      setPending(false);
+
+    if (mode === "signup") {
+      if (password.length < 6) {
+        setError("Password must be at least 6 characters long.");
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError("Passwords do not match. Please re-enter.");
+        return;
+      }
+      if (!signUp) {
+        setError("Account creation is not supported on this deployment.");
+        return;
+      }
+
+      setPending(true);
+      try {
+        await signUp(email, password);
+      } catch (signUpError) {
+        setError(
+          signUpError instanceof Error
+            ? signUpError.message
+            : "Account registration could not be completed."
+        );
+      } finally {
+        setPending(false);
+      }
+    } else {
+      setPending(true);
+      try {
+        await signIn(email, password);
+      } catch (signInError) {
+        setError(
+          signInError instanceof Error
+            ? signInError.message
+            : "Sign-in could not be completed."
+        );
+      } finally {
+        setPending(false);
+      }
     }
   }
 
@@ -111,7 +144,7 @@ export function AuthScreen({
           <p className="auth-story-copy">
             A quiet space for people you trust.
             <br />
-            Sign in to continue to your private circle.
+            Sign in or create your private account to connect.
           </p>
 
           <div className="auth-disclaimer">
@@ -128,10 +161,46 @@ export function AuthScreen({
         </section>
 
         <section className="auth-card" aria-labelledby="auth-title">
+          {/* Mode Switcher Tabs */}
+          <div className="auth-mode-tabs" role="tablist" aria-label="Authentication Mode">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "signin"}
+              className={`auth-mode-tab ${mode === "signin" ? "active" : ""}`}
+              onClick={() => {
+                setMode("signin");
+                setError("");
+              }}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "signup"}
+              className={`auth-mode-tab ${mode === "signup" ? "active" : ""}`}
+              onClick={() => {
+                setMode("signup");
+                setError("");
+              }}
+            >
+              Create Account
+            </button>
+          </div>
+
           <div className="auth-card-heading">
-            <p className="eyebrow">WELCOME BACK</p>
-            <h2 id="auth-title">Sign in</h2>
-            <p>Use the provisioned credentials for your GhostChat account.</p>
+            <p className="eyebrow">
+              {mode === "signin" ? "WELCOME BACK" : "NEW TO GHOSTCHAT"}
+            </p>
+            <h2 id="auth-title">
+              {mode === "signin" ? "Sign in" : "Create Account"}
+            </h2>
+            <p>
+              {mode === "signin"
+                ? "Use your account credentials to enter GhostChat."
+                : "Create your private account to start ephemeral messaging."}
+            </p>
           </div>
 
           {isUnconfigured && (
@@ -170,16 +239,32 @@ export function AuthScreen({
             <label className="auth-field">
               <span>Password</span>
               <input
-                autoComplete="current-password"
+                autoComplete={mode === "signin" ? "current-password" : "new-password"}
                 type="password"
                 maxLength={128}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                placeholder="Your password"
+                placeholder={mode === "signin" ? "Your password" : "At least 6 characters"}
                 required
                 disabled={!isConfigured || pending}
               />
             </label>
+
+            {mode === "signup" && (
+              <label className="auth-field">
+                <span>Confirm password</span>
+                <input
+                  autoComplete="new-password"
+                  type="password"
+                  maxLength={128}
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  placeholder="Re-enter password"
+                  required
+                  disabled={!isConfigured || pending}
+                />
+              </label>
+            )}
 
             {error && (
               <p className="auth-error" role="alert">
@@ -194,23 +279,56 @@ export function AuthScreen({
             >
               {pending ? (
                 <>
-                  <span className="auth-spinner" /> Signing in…
+                  <span className="auth-spinner" />
+                  {mode === "signin" ? "Signing in…" : "Creating account…"}
                 </>
               ) : (
                 <>
-                  Sign in <span aria-hidden="true">→</span>
+                  {mode === "signin" ? "Sign in" : "Create Account"} <span aria-hidden="true">→</span>
                 </>
               )}
             </button>
           </form>
 
+          <div className="auth-toggle-row">
+            {mode === "signin" ? (
+              <span>
+                Don&apos;t have an account yet?{" "}
+                <button
+                  type="button"
+                  className="auth-toggle-btn"
+                  onClick={() => {
+                    setMode("signup");
+                    setError("");
+                  }}
+                >
+                  Create one
+                </button>
+              </span>
+            ) : (
+              <span>
+                Already have an account?{" "}
+                <button
+                  type="button"
+                  className="auth-toggle-btn"
+                  onClick={() => {
+                    setMode("signin");
+                    setError("");
+                  }}
+                >
+                  Sign in here
+                </button>
+              </span>
+            )}
+          </div>
+
           <div className="auth-divider">
-            <span /> <span>INVITE-ONLY ACCESS</span> <span />
+            <span /> <span>INVITE-ONLY CONVERSATIONS</span> <span />
           </div>
 
           <p className="auth-enrollment">
-            Account creation is provisioned by the project owner. Pairing codes connect
-            existing accounts and do not create public accounts.
+            Accounts connect using 128-bit single-use pairing codes. No public profile
+            or communication graph is ever published.
           </p>
 
           <p className="auth-footnote">

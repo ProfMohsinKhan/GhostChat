@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  createUserWithEmailAndPassword,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
@@ -16,6 +17,7 @@ type AuthContextValue = {
   user: User | null;
   isConfigured: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -62,6 +64,19 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
     }
   }, []);
 
+  const signUp = useCallback(async (email: string, password: string) => {
+    if (!isFirebaseConfigured) throw new Error("Firebase is not configured for this deployment.");
+    if (!email.trim() || !password) throw new Error("Enter an email address and password.");
+    if (password.length < 6) throw new Error("Password must be at least 6 characters long.");
+
+    try {
+      const { auth } = getFirebaseClient();
+      await createUserWithEmailAndPassword(auth, email.trim(), password);
+    } catch (error) {
+      throw new Error(getAuthErrorMessage(error));
+    }
+  }, []);
+
   const signOut = useCallback(async () => {
     try {
       const { auth } = getFirebaseClient();
@@ -72,8 +87,8 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
   }, []);
 
   const value = useMemo(
-    () => ({ status, user, isConfigured: isFirebaseConfigured, signIn, signOut }),
-    [status, user, signIn, signOut],
+    () => ({ status, user, isConfigured: isFirebaseConfigured, signIn, signUp, signOut }),
+    [status, user, signIn, signUp, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -91,6 +106,10 @@ function getAuthErrorMessage(error: unknown): string {
     : "";
 
   switch (code) {
+    case "auth/email-already-in-use":
+      return "An account with this email address already exists. Try signing in instead.";
+    case "auth/weak-password":
+      return "Password is too weak. Please use at least 6 characters.";
     case "auth/invalid-credential":
     case "auth/user-not-found":
     case "auth/wrong-password":
@@ -101,8 +120,8 @@ function getAuthErrorMessage(error: unknown): string {
     case "auth/network-request-failed":
       return "Firebase could not be reached. Check your connection and try again.";
     case "auth/operation-not-allowed":
-      return "Email and password sign-in is not enabled for this Firebase project yet.";
+      return "Email and password authentication is not enabled for this Firebase project yet.";
     default:
-      return "Sign-in could not be completed. Check your details and try again.";
+      return "Authentication could not be completed. Check your details and try again.";
   }
 }
