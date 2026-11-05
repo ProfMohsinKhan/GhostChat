@@ -19,9 +19,10 @@ export interface ScreenshotProtectionOptions {
  * Covers:
  * - PrintScreen / Snapshot key (Windows, Linux)
  * - Alt + PrintScreen (active window capture)
- * - Win/Cmd + Shift + S (Windows Snipping Tool / Edge capture)
- * - Cmd + Shift + 3 / 4 / 5 (macOS screenshot shortcuts)
+ * - Win/Cmd + Shift + S (Windows Snipping Tool / Edge capture / Firefox screenshot)
+ * - Cmd + Shift + 3 / 4 / 5 / 6 (macOS screenshot shortcuts)
  * - Ctrl/Cmd + P (Print / Save-to-PDF capture)
+ * - Ctrl/Cmd + S (Save webpage capture)
  * - Ctrl/Cmd + Shift + I / J / C (DevTools DOM inspection)
  * - F12 / Ctrl+U (Inspect source)
  */
@@ -40,7 +41,12 @@ export function isScreenshotKeyCombination(e: {
   const isAlt = Boolean(e.altKey);
 
   // 1. Direct PrintScreen / Snapshot key
-  if (key === "PrintScreen" || code === "PrintScreen" || key === "Snapshot") {
+  if (
+    key === "PrintScreen" ||
+    code === "PrintScreen" ||
+    key === "Snapshot" ||
+    key === "MediaRecord"
+  ) {
     return true;
   }
 
@@ -54,17 +60,27 @@ export function isScreenshotKeyCombination(e: {
     return true;
   }
 
-  // 4. macOS screen capture shortcuts: Cmd + Shift + 3, 4, 5
-  if (e.metaKey && isShift && ["3", "4", "5"].includes(key)) {
+  // 4. Windows Snipping Tool (Win + Shift + S) - Meta/Win key passed directly
+  if (e.metaKey && isShift && (key === "s" || key === "S" || code === "KeyS")) {
     return true;
   }
 
-  // 5. Ctrl/Cmd + P (Print capture / PDF export)
-  if (isCtrl && !isShift && (key === "p" || key === "P" || code === "KeyP")) {
+  // 5. macOS screen capture shortcuts: Cmd + Shift + 3, 4, 5, 6
+  if (e.metaKey && isShift && ["3", "4", "5", "6"].includes(key)) {
     return true;
   }
 
-  // 6. DevTools inspection shortcuts to view plaintexts
+  // 6. Ctrl/Cmd + P (Print capture / PDF export)
+  if (isCtrl && (key === "p" || key === "P" || code === "KeyP")) {
+    return true;
+  }
+
+  // 7. Ctrl/Cmd + S (Save webpage to disk)
+  if (isCtrl && !isShift && (key === "s" || key === "S" || code === "KeyS")) {
+    return true;
+  }
+
+  // 8. DevTools inspection shortcuts to view plaintexts
   if (key === "F12" || code === "F12") {
     return true;
   }
@@ -101,9 +117,10 @@ export async function poisonClipboard(): Promise<boolean> {
 /**
  * Hook to enforce client-side screenshot protection:
  * - Detects screenshot keys and intercepts them.
- * - Poisons the clipboard on PrintScreen.
- * - Obscures (blurs) sensitive chat contents when window loses focus (e.g., when Snipping Tool triggers).
- * - Disables printing via beforeprint listeners.
+ * - Forces full synchronous DOM blackout (html.force-screenshot-blackout) instantly before screen capture can sample the window.
+ * - Repeatedly poisons the clipboard to overwrite any OS-captured raster buffer.
+ * - Immediately blanks out chat when the window loses focus (e.g. Snipping Tool overlay trigger).
+ * - Blocks printing via beforeprint listeners.
  */
 export function useScreenshotProtection({
   enabled = true,
@@ -112,42 +129,62 @@ export function useScreenshotProtection({
 }: ScreenshotProtectionOptions = {}) {
   const [isScreenObscured, setIsScreenObscured] = useState(false);
 
+  const applyBlackout = useCallback((active: boolean) => {
+    if (typeof document === "undefined") return;
+    if (active) {
+      document.documentElement.classList.add("force-screenshot-blackout");
+      document.body?.classList.add("force-screenshot-blackout");
+    } else {
+      document.documentElement.classList.remove("force-screenshot-blackout");
+      document.body?.classList.remove("force-screenshot-blackout");
+    }
+  }, []);
+
   const handleInterceptAttempt = useCallback(
     (reason: string) => {
       setIsScreenObscured(true);
+      applyBlackout(true);
       void poisonClipboard();
+
+      // Repeated burst to overwrite clipboard cache
+      for (let delay = 50; delay <= 600; delay += 100) {
+        window.setTimeout(() => void poisonClipboard(), delay);
+      }
+
       onAttempt?.(reason);
 
-      // Auto-clear temporary obscure after 2 seconds if user is still focused
-      if (typeof window !== "undefined" && document.hasFocus()) {
+      // Keep blackout active for 2.2 seconds before revealing
+      if (typeof window !== "undefined") {
         window.setTimeout(() => {
           if (document.hasFocus()) {
+            applyBlackout(false);
             setIsScreenObscured(false);
           }
         }, 2200);
       }
     },
-    [onAttempt]
+    [onAttempt, applyBlackout]
   );
 
   useEffect(() => {
     if (!enabled || typeof window === "undefined") {
       setIsScreenObscured(false);
+      applyBlackout(false);
       return;
     }
 
-    // Keydown interceptor
+    // Keydown interceptor (captures before OS handles)
     function onKeyDown(e: KeyboardEvent) {
       if (isScreenshotKeyCombination(e)) {
         e.preventDefault();
         e.stopPropagation();
         handleInterceptAttempt(
-          "📸 Screenshot attempt blocked: Ephemeral privacy protection is active."
+          "📸 Screenshot attempt blocked: Ephemeral privacy protection is enforced."
         );
       }
     }
 
-    // Keyup interceptor (PrintScreen often registers on keyup in Chrome/Windows)
+    // Keyup interceptor (PrintScreen often registers on keyup on Windows)
     function onKeyUp(e: KeyboardEvent) {
       if (e.key === "PrintScreen" || e.code === "PrintScreen") {
         e.preventDefault();
@@ -159,36 +196,59 @@ export function useScreenshotProtection({
     }
 
     // Focus & Blur interceptor:
-    // When Snipping Tool (Win+Shift+S) or any overlay screen grabber starts,
-    // the window immediately loses focus (blur). Obscuring immediately prevents Snipping Tool from capturing content.
+    // When Snipping Tool (Win+Shift+S) or any external grabber begins, window blurs synchronously.
+    // Immediately forcing blackout ensures Snipping Tool only captures solid black screen.
     function onBlur() {
       if (blurInactive) {
         setIsScreenObscured(true);
+        applyBlackout(true);
+        void poisonClipboard();
       }
     }
 
     function onFocus() {
-      // Smoothly restore view once window is re-focused
-      setIsScreenObscured(false);
+      // Delay un-blackout to ensure snipping tool cursor has completely detached
+      window.setTimeout(() => {
+        if (document.hasFocus()) {
+          applyBlackout(false);
+          setIsScreenObscured(false);
+        }
+      }, 150);
+    }
+
+    function onPointerDown() {
+      if (document.hasFocus()) {
+        applyBlackout(false);
+        setIsScreenObscured(false);
+      }
     }
 
     function onVisibilityChange() {
       if (document.hidden && blurInactive) {
         setIsScreenObscured(true);
+        applyBlackout(true);
+        void poisonClipboard();
       } else if (!document.hidden && document.hasFocus()) {
-        setIsScreenObscured(false);
+        window.setTimeout(() => {
+          if (document.hasFocus()) {
+            applyBlackout(false);
+            setIsScreenObscured(false);
+          }
+        }, 150);
       }
     }
 
-    // Print interceptor (Ctrl+P / File -> Print)
+    // Print interceptor (Ctrl+P / Browser Print)
     function onBeforePrint() {
       setIsScreenObscured(true);
+      applyBlackout(true);
       handleInterceptAttempt(
         "🖨️ Printing blocked: Ephemeral messages cannot be exported or printed."
       );
     }
 
     function onAfterPrint() {
+      applyBlackout(false);
       setIsScreenObscured(false);
     }
 
@@ -196,6 +256,7 @@ export function useScreenshotProtection({
     window.addEventListener("keyup", onKeyUp, { capture: true });
     window.addEventListener("blur", onBlur);
     window.addEventListener("focus", onFocus);
+    window.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("beforeprint", onBeforePrint);
     window.addEventListener("afterprint", onAfterPrint);
@@ -205,15 +266,18 @@ export function useScreenshotProtection({
       window.removeEventListener("keyup", onKeyUp, { capture: true });
       window.removeEventListener("blur", onBlur);
       window.removeEventListener("focus", onFocus);
+      window.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("beforeprint", onBeforePrint);
       window.removeEventListener("afterprint", onAfterPrint);
+      applyBlackout(false);
     };
-  }, [enabled, blurInactive, handleInterceptAttempt]);
+  }, [enabled, blurInactive, handleInterceptAttempt, applyBlackout]);
 
   return {
     isScreenObscured,
     setIsScreenObscured,
+    triggerBlackout: handleInterceptAttempt,
     clearClipboard: poisonClipboard,
   };
 }

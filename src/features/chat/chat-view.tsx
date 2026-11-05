@@ -31,8 +31,6 @@ export function ChatView({
   onOpenDestroyModal,
   onSendMessage,
   onTyping,
-  isLive: _isLive,
-  isKeyReady: _isKeyReady = true,
   isDestroyed = false,
   onReopenSession,
   onRenameContact,
@@ -45,6 +43,7 @@ export function ChatView({
   const [editedName, setEditedName] = useState(contact.name);
   const [lastAttemptTime, setLastAttemptTime] = useState<string | null>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [stealthMode, setStealthMode] = useState<boolean>(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageAreaRef = useRef<HTMLDivElement>(null);
@@ -297,6 +296,20 @@ export function ChatView({
         <div className="header-actions">
           <button
             type="button"
+            className={`header-stealth-pill ${stealthMode ? "active" : ""}`}
+            onClick={() => setStealthMode((prev) => !prev)}
+            title={
+              stealthMode
+                ? "Snapchat Stealth Mode ON: Messages frosted until held/hovered"
+                : "Enable Snapchat Stealth Mode (Frosted blur)"
+            }
+            aria-label="Toggle Snapchat Stealth Mode"
+          >
+            <Icon name="shieldCheck" size={13} />
+            <span>{stealthMode ? "Stealth ON" : "Stealth"}</span>
+          </button>
+          <button
+            type="button"
             className="header-timer-chip"
             onClick={onOpenEphemeralModal}
             title="Auto-delete timer (click to change)"
@@ -392,7 +405,7 @@ export function ChatView({
         </div>
 
         {contact.messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+          <MessageBubble key={message.id} message={message} stealthMode={stealthMode} />
         ))}
 
         {contact.isTyping && (
@@ -513,7 +526,15 @@ export function ChatView({
   );
 }
 
-function MessageBubble({ message }: { message: SampleMessage }) {
+function MessageBubble({
+  message,
+  stealthMode = false,
+}: {
+  message: SampleMessage;
+  stealthMode?: boolean;
+}) {
+  const [isRevealed, setIsRevealed] = useState(false);
+
   if (message.sender === "system") {
     return (
       <div className="system-note system-alert-note">
@@ -525,12 +546,21 @@ function MessageBubble({ message }: { message: SampleMessage }) {
 
   const isMine = message.sender === "me";
   const isError = Boolean(message.decryptionError);
+  const isStealth = stealthMode;
 
   return (
     <div className={`message-row ${isMine ? "mine" : "theirs"}`}>
       <div className="bubble-wrap">
         {message.attachment ? (
-          <div className="attachment-card">
+          <div
+            className={`attachment-card ${isStealth ? "stealth-bubble" : ""} ${isRevealed ? "revealed" : ""}`}
+            onPointerDown={() => isStealth && setIsRevealed(true)}
+            onPointerUp={() => isStealth && setIsRevealed(false)}
+            onPointerLeave={() => isStealth && setIsRevealed(false)}
+            onTouchStart={() => isStealth && setIsRevealed(true)}
+            onTouchEnd={() => isStealth && setIsRevealed(false)}
+            onTouchCancel={() => isStealth && setIsRevealed(false)}
+          >
             <div className="attachment-icon">
               <Icon name="fileText" size={20} />
             </div>
@@ -545,7 +575,13 @@ function MessageBubble({ message }: { message: SampleMessage }) {
           </div>
         ) : (
           <div
-            className={`message-bubble ${isError ? "bubble-error" : ""}`}
+            className={`message-bubble ${isError ? "bubble-error" : ""} ${isStealth ? "stealth-bubble" : ""} ${isRevealed ? "revealed" : ""}`}
+            onPointerDown={() => isStealth && setIsRevealed(true)}
+            onPointerUp={() => isStealth && setIsRevealed(false)}
+            onPointerLeave={() => isStealth && setIsRevealed(false)}
+            onTouchStart={() => isStealth && setIsRevealed(true)}
+            onTouchEnd={() => isStealth && setIsRevealed(false)}
+            onTouchCancel={() => isStealth && setIsRevealed(false)}
             style={
               isError
                 ? {

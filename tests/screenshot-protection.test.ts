@@ -6,9 +6,10 @@ import {
 } from "../src/features/security/screenshot-protection.js";
 
 describe("Anti-Screenshot & Capture Protection System", () => {
-  test("identifies direct PrintScreen / Snapshot key", () => {
+  test("identifies direct PrintScreen / Snapshot / MediaRecord keys", () => {
     assert.equal(isScreenshotKeyCombination({ key: "PrintScreen" }), true);
     assert.equal(isScreenshotKeyCombination({ key: "Snapshot" }), true);
+    assert.equal(isScreenshotKeyCombination({ key: "MediaRecord" }), true);
     assert.equal(isScreenshotKeyCombination({ key: "Unidentified", code: "PrintScreen" }), true);
   });
 
@@ -28,9 +29,13 @@ describe("Anti-Screenshot & Capture Protection System", () => {
       isScreenshotKeyCombination({ key: "S", metaKey: true, shiftKey: true }),
       true
     );
+    assert.equal(
+      isScreenshotKeyCombination({ key: "s", metaKey: true, shiftKey: true }),
+      true
+    );
   });
 
-  test("identifies macOS screen capture shortcuts (Cmd + Shift + 3/4/5)", () => {
+  test("identifies macOS screen capture shortcuts (Cmd + Shift + 3/4/5/6)", () => {
     assert.equal(
       isScreenshotKeyCombination({ key: "3", metaKey: true, shiftKey: true }),
       true
@@ -43,11 +48,20 @@ describe("Anti-Screenshot & Capture Protection System", () => {
       isScreenshotKeyCombination({ key: "5", metaKey: true, shiftKey: true }),
       true
     );
+    assert.equal(
+      isScreenshotKeyCombination({ key: "6", metaKey: true, shiftKey: true }),
+      true
+    );
   });
 
   test("identifies Print / PDF capture (Ctrl/Cmd + P)", () => {
     assert.equal(isScreenshotKeyCombination({ key: "p", ctrlKey: true }), true);
     assert.equal(isScreenshotKeyCombination({ key: "P", metaKey: true }), true);
+  });
+
+  test("identifies Save Page capture (Ctrl/Cmd + S)", () => {
+    assert.equal(isScreenshotKeyCombination({ key: "s", ctrlKey: true }), true);
+    assert.equal(isScreenshotKeyCombination({ key: "S", metaKey: true }), true);
   });
 
   test("identifies DevTools plaintext inspection shortcuts", () => {
@@ -66,15 +80,12 @@ describe("Anti-Screenshot & Capture Protection System", () => {
     assert.equal(isScreenshotKeyCombination({ key: "a" }), false);
     assert.equal(isScreenshotKeyCombination({ key: "Enter" }), false);
     assert.equal(isScreenshotKeyCombination({ key: "Backspace" }), false);
-    assert.equal(isScreenshotKeyCombination({ key: "s" }), false);
-    assert.equal(isScreenshotKeyCombination({ key: "p" }), false);
     assert.equal(isScreenshotKeyCombination({ key: " " }), false);
-    assert.equal(isScreenshotKeyCombination({ key: "c", ctrlKey: true }), false); // Normal copy permitted unless right clicked
+    assert.equal(isScreenshotKeyCombination({ key: "c", ctrlKey: true }), false);
   });
 
   test("poisonClipboard handles environments without navigator gracefully", async () => {
     const res = await poisonClipboard();
-    // In Node.js testing environment without DOM navigator, it should safely return false without throwing
     assert.equal(typeof res, "boolean");
   });
 });

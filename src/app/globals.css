@@ -3537,11 +3537,13 @@ button:disabled {
   position: relative;
 }
 
+.conversation.screen-obscured .message-area,
 .conversation.screen-obscured .message-stream,
+.conversation.screen-obscured .conversation-header,
 .conversation.screen-obscured .chat-header,
 .conversation.screen-obscured .composer-wrap,
 .conversation.screen-obscured .ephemeral-indicator {
-  filter: blur(28px) brightness(0.4) saturate(0.5);
+  filter: blur(32px) brightness(0.2) saturate(0.2) !important;
   pointer-events: none !important;
   user-select: none !important;
   transition: filter 0.12s ease-out;
@@ -3676,6 +3678,112 @@ button:disabled {
   font-size: 0.78rem;
   font-weight: 600;
   animation: fadeIn 0.2s ease-out;
+}
+
+/* 6. Hardcore Forced Anti-Screenshot Blackout */
+html.force-screenshot-blackout,
+body.force-screenshot-blackout {
+  background: #000000 !important;
+  color: transparent !important;
+  overflow: hidden !important;
+}
+
+html.force-screenshot-blackout body * {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+html.force-screenshot-blackout::before {
+  content: "🔒 GHOSTCHAT PRIVACY PROTOCOL: SCREENSHOT PROHIBITED";
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  background: #04090d !important;
+  color: #ef4444 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 30px;
+  box-sizing: border-box;
+}
+
+html.force-screenshot-blackout::after {
+  content: "Screenshots and screen capture tools are strictly prohibited. Click to reveal.";
+  position: fixed;
+  bottom: 35%;
+  left: 0;
+  right: 0;
+  z-index: 2147483647;
+  color: #94a3b8 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 20px;
+}
+
+/* 7. Snapchat Stealth Mode: Tap / Hold to Reveal */
+.header-stealth-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  color: #94a3b8;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.header-stealth-pill:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.header-stealth-pill.active {
+  background: rgba(20, 184, 166, 0.16);
+  border-color: rgba(20, 184, 166, 0.45);
+  color: #2dd4bf;
+}
+
+.stealth-bubble {
+  filter: blur(14px) brightness(0.65);
+  user-select: none !important;
+  cursor: pointer;
+  transition: filter 0.15s ease-out;
+  position: relative;
+}
+
+.stealth-bubble:hover,
+.stealth-bubble:active,
+.stealth-bubble.revealed {
+  filter: none !important;
+}
+
+.stealth-bubble:not(:hover):not(:active):not(.revealed)::after {
+  content: "👁️ Hold to View";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #5eead4;
+  letter-spacing: 0.5px;
+  pointer-events: none;
 }
 
 
