@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import type { Contact, QuotedMessage, SampleMessage } from "./types";
 import { Icon } from "@/components/icons";
 import { useScreenshotProtection } from "@/features/security/screenshot-protection";
@@ -56,11 +56,13 @@ export function ChatView({
   const [pendingImage, setPendingImage] = useState<string | null>(null);
   const [isViewOnce, setIsViewOnce] = useState<boolean>(true);
   const [imageCaption, setImageCaption] = useState<string>("");
+  const [openedViewOnceIds, setOpenedViewOnceIds] = useState<Set<string>>(() => new Set());
   const [activeViewOnce, setActiveViewOnce] = useState<{
     id: string;
     url: string;
     caption?: string;
   } | null>(null);
+  const [viewOnceTimeLeft, setViewOnceTimeLeft] = useState<number>(3);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageAreaRef = useRef<HTMLDivElement>(null);
@@ -162,18 +164,10 @@ export function ChatView({
     }, 40);
   }
 
-  function handleOpenViewOnce(message: SampleMessage) {
-    if (!message.imageData || message.isOpened) return;
-    setActiveViewOnce({
-      id: message.id,
-      url: message.imageData,
-      caption: message.text,
-    });
-  }
-
-  function handleCloseViewOnce() {
+  const handleCloseViewOnce = useCallback(() => {
     if (activeViewOnce) {
       onBurnMessage?.(activeViewOnce.id);
+      setOpenedViewOnceIds((prev) => new Set(prev).add(activeViewOnce.id));
       const foundMsg = contact.messages.find((m) => m.id === activeViewOnce.id);
       if (foundMsg) {
         foundMsg.isOpened = true;
@@ -181,7 +175,59 @@ export function ChatView({
       }
       setActiveViewOnce(null);
     }
+  }, [activeViewOnce, contact.messages, onBurnMessage]);
+
+  function handleOpenViewOnce(message: SampleMessage) {
+    if (!message.imageData || message.isOpened || openedViewOnceIds.has(message.id)) return;
+
+    // Prevent repeated views: mark as opened immediately
+    setOpenedViewOnceIds((prev) => new Set(prev).add(message.id));
+
+    // Wipe memory reference from the message object so it cannot be viewed again
+    message.isOpened = true;
+    const imgUrl = message.imageData;
+    message.imageData = undefined;
+
+    // Trigger physical purge from Firebase RTDB immediately
+    onBurnMessage?.(message.id);
+
+    setViewOnceTimeLeft(3);
+    setActiveViewOnce({
+      id: message.id,
+      url: imgUrl,
+      caption: message.text,
+    });
   }
+
+  // Strict 3-Second Auto-Burn Countdown Timer for View Once Lightbox
+  useEffect(() => {
+    if (!activeViewOnce) return;
+    setViewOnceTimeLeft(3);
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      const elapsedSec = (Date.now() - startTime) / 1000;
+      const remaining = Math.max(0, 3 - Math.floor(elapsedSec));
+      setViewOnceTimeLeft(remaining);
+      if (elapsedSec >= 3) {
+        clearInterval(interval);
+        handleCloseViewOnce();
+      }
+    }, 80);
+
+    // Instant Anti-Capture / Blur Trigger:
+    // If window blurs, app switches, or screen hides, close and burn immediately!
+    function handleSecurityBurn() {
+      handleCloseViewOnce();
+    }
+    window.addEventListener("blur", handleSecurityBurn);
+    document.addEventListener("visibilitychange", handleSecurityBurn);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("blur", handleSecurityBurn);
+      document.removeEventListener("visibilitychange", handleSecurityBurn);
+    };
+  }, [activeViewOnce, handleCloseViewOnce]);
 
   // Sync editedName when contact changes
   useEffect(() => {
@@ -510,6 +556,7 @@ export function ChatView({
             key={message.id}
             message={message}
             stealthMode={stealthMode}
+            isOpened={openedViewOnceIds.has(message.id) || Boolean(message.isOpened)}
             onReply={handleInitiateReply}
             onJumpToMessage={handleJumpToMessage}
             onOpenViewOnce={handleOpenViewOnce}
@@ -716,11 +763,11 @@ export function ChatView({
                 title="Toggle View Once (Burns upon closing)"
               >
                 <span className="view-once-circle-badge">1</span>
-                <span>{isViewOnce ? "View Once Active" : "Regular Image"}</span>
+                <span>{isViewOnce ? "View Once Active (3s)" : "Regular Image"}</span>
               </button>
               <span className="view-once-note">
                 {isViewOnce
-                  ? "Burns automatically from memory as soon as viewed."
+                  ? "Burns automatically from memory after 3 seconds. Cannot be viewed again."
                   : "Saved in session until timer expires."}
               </span>
             </div>
@@ -755,19 +802,53 @@ export function ChatView({
         </div>
       )}
 
-      {/* Fullscreen View Once Ephemeral Lightbox */}
+      {/* Fullscreen View Once Ephemeral Lightbox (Strict 3-Second Auto-Burn) */}
       {activeViewOnce && (
         <div
           className="view-once-lightbox"
           role="dialog"
           aria-modal="true"
           onClick={handleCloseViewOnce}
+          onTouchStart={(e) => {
+            if (e.touches.length > 1) {
+              // Multi-touch capture attempt -> burn immediately!
+              handleCloseViewOnce();
+            }
+          }}
         >
+          {/* Top 3-Second Countdown Progress Bar */}
+          <div className="lightbox-burn-progress-bar">
+            <div className="progress-fill-3s" />
+          </div>
+
           <div className="lightbox-top-bar" onClick={(e) => e.stopPropagation()}>
             <div className="lightbox-badge">
               <span className="badge-circle">1</span>
-              <span>View Once Photo · Burns on close</span>
+              <span>View Once Photo</span>
             </div>
+
+            {/* Glowing 3-Second Countdown Meter */}
+            <div
+              className="view-once-countdown-meter"
+              title={`Auto-burns in ${viewOnceTimeLeft}s`}
+              aria-label={`Time remaining: ${viewOnceTimeLeft} seconds`}
+            >
+              <svg className="countdown-svg" viewBox="0 0 36 36">
+                <circle className="countdown-bg-ring" cx="18" cy="18" r="15.915" />
+                <circle
+                  className="countdown-progress-ring"
+                  cx="18"
+                  cy="18"
+                  r="15.915"
+                  strokeDasharray="100, 100"
+                  style={{
+                    strokeDashoffset: `${((3 - viewOnceTimeLeft) / 3) * 100}`,
+                  }}
+                />
+              </svg>
+              <span className="countdown-number">{viewOnceTimeLeft}s</span>
+            </div>
+
             <button
               type="button"
               className="lightbox-burn-btn"
@@ -784,7 +865,7 @@ export function ChatView({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="lightbox-watermark-strip">
-              <span>🔒 GHOSTCHAT CONFIDENTIAL · NO CAPTURE</span>
+              <span>🔒 GHOSTCHAT CONFIDENTIAL · BURNS IN {viewOnceTimeLeft}s · NO REPLAY</span>
             </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -792,6 +873,7 @@ export function ChatView({
               alt="View Once Ephemeral"
               className="lightbox-img"
               onContextMenu={(e) => e.preventDefault()}
+              onDragStart={(e) => e.preventDefault()}
             />
             {activeViewOnce.caption && (
               <div className="lightbox-caption">{activeViewOnce.caption}</div>
@@ -805,7 +887,7 @@ export function ChatView({
               onClick={handleCloseViewOnce}
             >
               <Icon name="flame" size={16} />
-              <span>Close &amp; Burn Now</span>
+              <span>Close &amp; Burn Now ({viewOnceTimeLeft}s)</span>
             </button>
           </div>
         </div>
@@ -817,12 +899,14 @@ export function ChatView({
 function MessageBubble({
   message,
   stealthMode = false,
+  isOpened = false,
   onReply,
   onJumpToMessage,
   onOpenViewOnce,
 }: {
   message: SampleMessage;
   stealthMode?: boolean;
+  isOpened?: boolean;
   onReply?: (msg: SampleMessage) => void;
   onJumpToMessage?: (msgId: string) => void;
   onOpenViewOnce?: (msg: SampleMessage) => void;
@@ -897,6 +981,7 @@ function MessageBubble({
   const isMine = message.sender === "me";
   const isError = Boolean(message.decryptionError);
   const isStealth = stealthMode;
+  const isViewOnceOpened = isOpened || Boolean(message.isOpened);
 
   return (
     <div
@@ -907,11 +992,11 @@ function MessageBubble({
       <div className="bubble-wrap">
         {message.viewOnce ? (
           <div
-            className={`view-once-card ${message.isOpened ? "opened" : "unopened"} ${
+            className={`view-once-card ${isViewOnceOpened ? "opened" : "unopened"} ${
               isStealth ? "stealth-bubble" : ""
             } ${isRevealed ? "revealed" : ""}`}
             onClick={() => {
-              if (!message.isOpened) {
+              if (!isViewOnceOpened) {
                 onOpenViewOnce?.(message);
               }
             }}
@@ -922,27 +1007,33 @@ function MessageBubble({
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
             onTouchCancel={handleTouchEnd}
-            role="button"
-            tabIndex={message.isOpened ? -1 : 0}
+            role={isViewOnceOpened ? "region" : "button"}
+            tabIndex={isViewOnceOpened ? -1 : 0}
             title={
-              message.isOpened
+              isViewOnceOpened
                 ? "Photo already viewed and burned"
-                : "Tap to view (Burns after 1 view)"
+                : isMine
+                ? "View Once photo sent (Burns after viewing)"
+                : "Tap to view (Burns strictly after 3 seconds)"
             }
           >
             <div className="view-once-ring-icon">
-              <span className="ring-number">1</span>
+              {isViewOnceOpened ? (
+                <Icon name="flame" size={14} className="ring-burned-icon" />
+              ) : (
+                <span className="ring-number">1</span>
+              )}
             </div>
             <div className="view-once-text-content">
               <strong className="view-once-title">
-                {message.isOpened ? "Opened" : "Photo"}
+                {isViewOnceOpened ? "Opened" : "Photo"}
               </strong>
               <span className="view-once-subtitle">
-                {message.isOpened
+                {isViewOnceOpened
                   ? "Burned from memory"
                   : isMine
                   ? "View Once photo sent"
-                  : "View Once · Tap to view"}
+                  : "View Once · 3s timer"}
               </span>
             </div>
             {message.text && (

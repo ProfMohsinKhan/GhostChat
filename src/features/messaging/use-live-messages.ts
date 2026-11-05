@@ -36,9 +36,11 @@ export function useLiveMessages({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const activeConvRef = useRef<string | null>(conversationId);
+  const burnedStubsRef = useRef<Map<string, LiveChatMessage>>(new Map());
 
   useEffect(() => {
     activeConvRef.current = conversationId;
+    burnedStubsRef.current.clear();
   }, [conversationId]);
 
   useEffect(() => {
@@ -58,7 +60,22 @@ export function useLiveMessages({
       onMessages: (msgs) => {
         // Only update if still on this conversation
         if (activeConvRef.current === conversationId) {
-          setMessages(msgs);
+          // Merge with burned stubs in volatile session memory
+          const merged = msgs.map((m) => {
+            if (burnedStubsRef.current.has(m.id)) {
+              return { ...m, isOpened: true, imageData: undefined };
+            }
+            return m;
+          });
+
+          for (const [id, stub] of burnedStubsRef.current.entries()) {
+            if (!merged.some((m) => m.id === id)) {
+              merged.push(stub);
+            }
+          }
+          merged.sort((a, b) => a.timestamp - b.timestamp);
+
+          setMessages(merged);
           setLoading(false);
         }
       },
@@ -169,6 +186,22 @@ export function useLiveMessages({
   const burn = useCallback(
     async (messageId: string) => {
       if (!conversationId) return;
+      // Mark as burned in local session memory immediately to prevent repeat views
+      setMessages((prev) => {
+        const found = prev.find((m) => m.id === messageId);
+        if (found) {
+          burnedStubsRef.current.set(messageId, {
+            ...found,
+            isOpened: true,
+            imageData: undefined,
+          });
+          return prev.map((m) =>
+            m.id === messageId ? { ...m, isOpened: true, imageData: undefined } : m
+          );
+        }
+        return prev;
+      });
+
       await burnViewOnceMessage({
         conversationId,
         generation,
@@ -179,6 +212,7 @@ export function useLiveMessages({
   );
 
   const clearVolatile = useCallback(() => {
+    burnedStubsRef.current.clear();
     if (conversationId) {
       clearConversationDecryptedCache(conversationId);
     }

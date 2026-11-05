@@ -4086,7 +4086,8 @@ html.force-screenshot-blackout::after {
   opacity: 0.55;
   border-style: solid;
   border-color: rgba(148, 163, 184, 0.25);
-  cursor: default;
+  cursor: default !important;
+  pointer-events: none !important;
   background: rgba(15, 23, 28, 0.6);
 }
 
@@ -4428,6 +4429,76 @@ html.force-screenshot-blackout::after {
 .burn-now-btn:hover {
   background: #f87171;
   transform: translateY(-1px);
+}
+
+/* Top 3-Second Burn Progress Bar */
+.lightbox-burn-progress-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  z-index: 10001;
+}
+
+.progress-fill-3s {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #2dd4bf, #f59e0b, #ef4444);
+  animation: burnCountdownBar 3s linear forwards;
+}
+
+@keyframes burnCountdownBar {
+  0% {
+    width: 100%;
+  }
+  100% {
+    width: 0%;
+  }
+}
+
+/* 3-Second Countdown Meter */
+.view-once-countdown-meter {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.countdown-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.countdown-bg-ring {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 3.2;
+}
+
+.countdown-progress-ring {
+  fill: none;
+  stroke: #2dd4bf;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.1s linear, stroke 0.3s ease;
+}
+
+.countdown-number {
+  position: absolute;
+  font-size: 12px;
+  font-weight: 800;
+  color: #f1f5f9;
+  letter-spacing: -0.5px;
+}
+
+.ring-burned-icon {
+  color: #ef4444;
 }
 
 

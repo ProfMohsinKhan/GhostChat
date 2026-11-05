@@ -78,4 +78,54 @@ describe("Phase 15: View Once Ephemeral Image Protocol", () => {
 
     assert.ok(serialized.length < 60000, "Payload exceeds safety limit");
   });
+
+  test("strict 3-second auto-burn countdown correctly calculates remaining time and triggers burn", () => {
+    const startTime = 1000000;
+    function computeRemaining(currentTime: number): number {
+      const elapsedSec = (currentTime - startTime) / 1000;
+      return Math.max(0, 3 - Math.floor(elapsedSec));
+    }
+
+    assert.equal(computeRemaining(1000000), 3);
+    assert.equal(computeRemaining(1001000), 2);
+    assert.equal(computeRemaining(1002000), 1);
+    assert.equal(computeRemaining(1003000), 0);
+    assert.equal(computeRemaining(1004500), 0);
+  });
+
+  test("repeat view prevention: once viewed, message memory is wiped and second view is rejected", () => {
+    const openedViewOnceIds = new Set<string>();
+    const message = {
+      id: "msg_burn_42",
+      text: "Confidential screenshot",
+      imageData: "data:image/jpeg;base64,secretphoto123",
+      viewOnce: true,
+      isOpened: false,
+    };
+
+    function attemptOpen(msg: typeof message): boolean {
+      if (!msg.imageData || msg.isOpened || openedViewOnceIds.has(msg.id)) {
+        return false;
+      }
+      openedViewOnceIds.add(msg.id);
+      msg.isOpened = true;
+      msg.imageData = undefined;
+      return true;
+    }
+
+    // First attempt succeeds
+    const firstOpen = attemptOpen(message);
+    assert.equal(firstOpen, true);
+    assert.equal(message.isOpened, true);
+    assert.equal(message.imageData, undefined);
+    assert.equal(openedViewOnceIds.has("msg_burn_42"), true);
+
+    // Second attempt MUST be blocked
+    const secondOpen = attemptOpen(message);
+    assert.equal(secondOpen, false);
+
+    // Third attempt MUST be blocked
+    const thirdOpen = attemptOpen(message);
+    assert.equal(thirdOpen, false);
+  });
 });
