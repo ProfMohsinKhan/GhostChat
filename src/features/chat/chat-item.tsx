@@ -6,9 +6,10 @@ type ChatItemProps = {
   contact: Contact;
   isActive: boolean;
   onSelect: () => void;
+  onDelete?: () => void;
 };
 
-export function ChatItem({ contact, isActive, onSelect }: ChatItemProps) {
+export function ChatItem({ contact, isActive, onSelect, onDelete }: ChatItemProps) {
   return (
     <button
       type="button"
@@ -67,7 +68,23 @@ export function ChatItem({ contact, isActive, onSelect }: ChatItemProps) {
       </span>
 
       <span className="chat-item-meta">
-        <span className="chat-time">{contact.time}</span>
+        <span className="chat-time-row">
+          <span className="chat-time">{contact.time}</span>
+          {onDelete && (
+            <button
+              type="button"
+              className="chat-item-dismiss"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              title="Remove from list"
+              aria-label="Remove conversation"
+            >
+              <Icon name="close" size={11} />
+            </button>
+          )}
+        </span>
         <span className="chat-status-badges">
           {contact.unreadCount ? (
             <span className="unread-badge">{contact.unreadCount}</span>

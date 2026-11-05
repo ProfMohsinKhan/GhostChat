@@ -15,6 +15,7 @@ type ChatViewProps = {
   isKeyReady?: boolean;
   isDestroyed?: boolean;
   onReopenSession?: () => void;
+  onRenameContact?: (newName: string) => void;
 };
 
 export function ChatView({
@@ -30,8 +31,17 @@ export function ChatView({
   isKeyReady = true,
   isDestroyed = false,
   onReopenSession,
+  onRenameContact,
 }: ChatViewProps) {
   const [inputText, setInputText] = useState("");
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState(contact.name);
+
+  // Sync editedName when contact changes
+  React.useEffect(() => {
+    setEditedName(contact.name);
+    setIsEditingName(false);
+  }, [contact.id, contact.name]);
 
   function handleSend(e: React.FormEvent) {
     e.preventDefault();
@@ -57,13 +67,15 @@ export function ChatView({
           <Icon name="arrow" size={20} />
         </button>
 
-        <button
-          type="button"
-          className="header-person"
-          onClick={onOpenInfo}
-          aria-label={`View ${contact.name}'s details`}
-        >
-          <span className="avatar-wrap">
+        <div className="header-person">
+          <div
+            className="avatar-wrap"
+            onClick={onOpenInfo}
+            role="button"
+            tabIndex={0}
+            style={{ cursor: "pointer" }}
+            aria-label={`View ${contact.name}'s details`}
+          >
             <span className={`avatar avatar-${contact.color}`}>
               {contact.avatarIcon === "users" ? (
                 <Icon name="users" size={20} />
@@ -72,25 +84,101 @@ export function ChatView({
               )}
             </span>
             {contact.online && <span className="online-dot" />}
-          </span>
+          </div>
 
           <span className="header-person-copy">
-            <span className="header-name-row">
-              <strong>{contact.name}</strong>
-              <Icon name="lock" size={13} className="header-lock-icon" />
-              {contact.isKeyChanged ? (
-                <span
-                  className="verified-shield warning-shield"
-                  title="Security Identity Changed - Review Key"
-                  style={{ color: "var(--crimson)" }}
+            <span className="header-name-row" style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              {isEditingName ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (editedName.trim()) {
+                      onRenameContact?.(editedName.trim());
+                      setIsEditingName(false);
+                    }
+                  }}
+                  style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}
                 >
-                  <Icon name="shieldAlert" size={14} />
-                </span>
-              ) : contact.verified ? (
-                <span className="verified-shield" title="Identity Verified">
-                  <Icon name="shieldCheck" size={13} />
-                </span>
-              ) : null}
+                  <input
+                    type="text"
+                    value={editedName}
+                    onChange={(e) => setEditedName(e.target.value)}
+                    maxLength={30}
+                    autoFocus
+                    style={{
+                      background: "rgba(0, 0, 0, 0.4)",
+                      border: "1px solid var(--teal)",
+                      borderRadius: "4px",
+                      color: "#fff",
+                      padding: "2px 6px",
+                      fontSize: "0.95rem",
+                      fontWeight: 600,
+                      width: "140px",
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    style={{ background: "none", border: "none", color: "var(--teal)", cursor: "pointer", padding: "2px" }}
+                    title="Save name"
+                    aria-label="Save name"
+                  >
+                    <Icon name="check" size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditedName(contact.name);
+                      setIsEditingName(false);
+                    }}
+                    style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: "2px" }}
+                    title="Cancel"
+                    aria-label="Cancel rename"
+                  >
+                    <Icon name="close" size={13} />
+                  </button>
+                </form>
+              ) : (
+                <>
+                  <strong onClick={onOpenInfo} style={{ cursor: "pointer" }}>{contact.name}</strong>
+                  <Icon name="lock" size={13} className="header-lock-icon" />
+                  {contact.isKeyChanged ? (
+                    <span
+                      className="verified-shield warning-shield"
+                      title="Security Identity Changed - Review Key"
+                      style={{ color: "var(--crimson)" }}
+                    >
+                      <Icon name="shieldAlert" size={14} />
+                    </span>
+                  ) : contact.verified ? (
+                    <span className="verified-shield" title="Identity Verified">
+                      <Icon name="shieldCheck" size={13} />
+                    </span>
+                  ) : null}
+                  {onRenameContact && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditedName(contact.name);
+                        setIsEditingName(true);
+                      }}
+                      title="Rename contact"
+                      aria-label="Rename contact"
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "var(--text-muted)",
+                        cursor: "pointer",
+                        padding: "2px 4px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Icon name="pencil" size={13} />
+                    </button>
+                  )}
+                </>
+              )}
             </span>
             <span className="header-status-row">
               {contact.isTyping ? (
@@ -109,7 +197,7 @@ export function ChatView({
               )}
             </span>
           </span>
-        </button>
+        </div>
 
         <div className="header-actions">
           <button

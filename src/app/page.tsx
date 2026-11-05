@@ -260,6 +260,61 @@ function AuthenticatedWorkspace({
     >
   >({});
 
+  const [nicknames, setNicknames] = useState<Record<string, string>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = localStorage.getItem(`ghostchat_nicknames_${uid}`);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const [hiddenPairings, setHiddenPairings] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = localStorage.getItem(`ghostchat_hidden_${uid}`);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  function handleSetNickname(pairingId: string, name: string) {
+    const trimmed = name.trim();
+    setNicknames((prev) => {
+      const next = { ...prev };
+      if (trimmed) {
+        next[pairingId] = trimmed;
+      } else {
+        delete next[pairingId];
+      }
+      try {
+        localStorage.setItem(`ghostchat_nicknames_${uid}`, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    if (trimmed) {
+      notify(`Contact renamed to "${trimmed}"`);
+    }
+  }
+
+  function handleHidePairing(pairingId: string, e?: React.MouseEvent) {
+    e?.stopPropagation();
+    setHiddenPairings((prev) => {
+      if (prev.includes(pairingId)) return prev;
+      const next = [...prev, pairingId];
+      try {
+        localStorage.setItem(`ghostchat_hidden_${uid}`, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+    if (activeContactId === pairingId) {
+      setActiveContactId(SAMPLE_CONTACTS[0].id);
+    }
+    notify("Conversation removed from list.");
+  }
+
   useEffect(() => {
     if (!isLivePairing || !currentPairing || !peerUid || !peerAgreementKey) return;
     const pairingId = currentPairing.id;
@@ -320,7 +375,9 @@ function AuthenticatedWorkspace({
   // Map RTDB pairings into Contact objects
   const liveContacts = useMemo<Contact[]>(() => {
     if (!isLiveSession) return [];
-    return pairings.map((pairing) => {
+    return pairings
+      .filter((pairing) => !hiddenPairings.includes(pairing.id))
+      .map((pairing) => {
       const isPairingDestroyed = pairing.state === "destroyed";
       const isExpired =
         pairing.state === "pending" && pairing.expiresAt <= Date.now();
@@ -343,14 +400,34 @@ function AuthenticatedWorkspace({
       const fingerprint = verInfo?.fingerprint || "Derived during Phase 4";
       const previousFingerprint = verInfo?.previousFingerprint;
 
+      const customName = nicknames[pairing.id];
       const title =
-        pairing.state === "pending"
+        customName ||
+        (pairing.state === "pending"
           ? isExpired
             ? "Expired Invite"
             : "Pending Invite"
           : isPairingDestroyed
           ? "Destroyed Chat"
-          : "Paired Peer";
+          : "Paired Peer");
+
+      const COLORS: Contact["color"][] = ["teal", "lavender", "coral", "sage", "blue"];
+      const initials = customName
+        ? customName.slice(0, 2).toUpperCase()
+        : pairing.state === "pending"
+        ? "I"
+        : isPairingDestroyed
+        ? "D"
+        : "P";
+
+      const colorIndex = (customName || pairing.id)
+        .split("")
+        .reduce((acc, c) => acc + c.charCodeAt(0), 0) % COLORS.length;
+      const color = isPairingDestroyed
+        ? "coral"
+        : pairing.state === "pending"
+        ? "lavender"
+        : COLORS[colorIndex];
 
       const preview =
         pairing.state === "pending"
@@ -368,12 +445,8 @@ function AuthenticatedWorkspace({
       return {
         id: pairing.id,
         name: title,
-        initials: pairing.state === "pending" ? "I" : isPairingDestroyed ? "D" : "P",
-        color: (isPairingDestroyed
-          ? "coral"
-          : pairing.state === "pending"
-          ? "lavender"
-          : "teal") as Contact["color"],
+        initials,
+        color,
         online: peerOnline,
         lastSeen: peerLastSeen,
         isTyping: isPeerTyping,
@@ -420,6 +493,8 @@ function AuthenticatedWorkspace({
     });
   }, [
     pairings,
+    hiddenPairings,
+    nicknames,
     isLiveSession,
     activeTimer,
     currentPairing,
@@ -931,6 +1006,11 @@ function AuthenticatedWorkspace({
                       setRailSection("chats");
                       setMobileShowList(false);
                     }}
+                    onDelete={
+                      isLiveSession && pairings.some((p) => p.id === contact.id)
+                        ? () => handleHidePairing(contact.id)
+                        : undefined
+                    }
                   />
                 ))}
 
@@ -991,6 +1071,7 @@ function AuthenticatedWorkspace({
           isKeyReady={Boolean(peerAgreementKey)}
           isDestroyed={isDestroyed}
           onReopenSession={handleReopenSession}
+          onRenameContact={(newName) => handleSetNickname(activeContact.id, newName)}
         />
       </div>
 
@@ -1026,6 +1107,7 @@ function AuthenticatedWorkspace({
           onOpenEphemeral={() => setActiveModal("ephemeral")}
           onDestroy={() => setActiveModal("destroy")}
           notify={notify}
+          onRenameContact={(newName) => handleSetNickname(activeContact.id, newName)}
         />
       )}
 
@@ -1043,9 +1125,12 @@ function AuthenticatedWorkspace({
           uid={uid}
           agreementPublicKey={myAgreementKey}
           onClose={() => setActiveModal(null)}
-          onPaired={(code) => {
+          onPaired={(code, customName) => {
             setActiveContactId(code);
-            notify(`Invite created: ${code.slice(0, 8)}... Added to your list.`);
+            if (customName) {
+              handleSetNickname(code, customName);
+            }
+            notify(`Invite ready: ${customName || code.slice(0, 8)}`);
           }}
           notify={notify}
         />

@@ -12,7 +12,7 @@ type PairingModalProps = {
   uid: string;
   agreementPublicKey?: string;
   onClose: () => void;
-  onPaired: (code: string) => void;
+  onPaired: (code: string, customName?: string) => void;
   notify: (message: string) => void;
 };
 
@@ -26,6 +26,8 @@ export function PairingModal({
   const [mode, setMode] = useState<"create" | "join">("create");
   const [code, setCode] = useState("");
   const [createdCode, setCreatedCode] = useState("");
+  const [contactAlias, setContactAlias] = useState("");
+  const [joinAlias, setJoinAlias] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
 
@@ -35,7 +37,7 @@ export function PairingModal({
     try {
       const nextCode = await createPairing(uid, agreementPublicKey);
       setCreatedCode(nextCode);
-      onPaired(nextCode);
+      onPaired(nextCode, contactAlias.trim());
       notify("Private invite code generated. Valid for 24 hours.");
     } catch (createErr) {
       console.error("Failed to create pairing:", createErr);
@@ -56,7 +58,8 @@ export function PairingModal({
     try {
       await acceptPairing(uid, code, agreementPublicKey);
       notify("You are paired! Conversation established in Firebase RTDB.");
-      onPaired(code.trim().replace(/\s+/g, ""));
+      const cleanCode = code.trim().replace(/\s+/g, "");
+      onPaired(cleanCode, joinAlias.trim());
       onClose();
     } catch (joinError) {
       setError(
@@ -189,9 +192,19 @@ export function PairingModal({
             </div>
           ) : (
             <div className="pairing-initial-create">
+              <label className="auth-field" style={{ marginBottom: "0.85rem" }}>
+                <span>Contact Name / Nickname (Optional)</span>
+                <input
+                  type="text"
+                  maxLength={30}
+                  value={contactAlias}
+                  onChange={(e) => setContactAlias(e.target.value)}
+                  placeholder="e.g. Maya, Rahul, Bestie, Work"
+                  disabled={pending}
+                />
+              </label>
               <div className="pairing-note">
-                Generating an invite creates an expiring, pending record in Firebase
-                Realtime Database. No names or unencrypted keys are stored.
+                Setting a contact nickname saves it privately on your device. Zero plaintext names or PII are ever stored on the server.
               </div>
               {error && (
                 <p className="auth-error" role="alert">
@@ -218,6 +231,17 @@ export function PairingModal({
           )
         ) : (
           <form className="pairing-join-form" onSubmit={handleJoin}>
+            <label className="auth-field" style={{ marginBottom: "0.85rem" }}>
+              <span>Contact Name / Nickname (Optional)</span>
+              <input
+                type="text"
+                maxLength={30}
+                value={joinAlias}
+                onChange={(e) => setJoinAlias(e.target.value)}
+                placeholder="e.g. Alex, Krazy, Maya"
+                disabled={pending}
+              />
+            </label>
             <label className="auth-field">
               <span>Paste 22-character invite code</span>
               <input

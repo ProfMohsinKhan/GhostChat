@@ -656,6 +656,31 @@ button:disabled {
   padding: 1px 0 2px;
 }
 
+.chat-time-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-item-dismiss {
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.4;
+  transition: opacity 0.2s, color 0.2s;
+}
+
+.chat-item-dismiss:hover {
+  opacity: 1;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+}
+
 .chat-status-badges {
   display: flex;
   align-items: center;

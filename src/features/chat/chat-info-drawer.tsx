@@ -10,6 +10,7 @@ type ChatInfoDrawerProps = {
   onOpenEphemeral: () => void;
   onDestroy: () => void;
   notify: (msg: string) => void;
+  onRenameContact?: (newName: string) => void;
 };
 
 export function ChatInfoDrawer({
@@ -20,7 +21,13 @@ export function ChatInfoDrawer({
   onOpenEphemeral,
   onDestroy,
   notify,
+  onRenameContact,
 }: ChatInfoDrawerProps) {
+  const [nicknameInput, setNicknameInput] = React.useState(contact.name);
+
+  React.useEffect(() => {
+    setNicknameInput(contact.name);
+  }, [contact.name]);
   return (
     <div
       className="info-backdrop"
@@ -86,6 +93,42 @@ export function ChatInfoDrawer({
               )}
             </span>
           </div>
+
+          {onRenameContact && (
+            <div style={{ marginTop: "0.75rem", width: "100%", maxWidth: "260px" }}>
+              <div style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
+                <input
+                  type="text"
+                  value={nicknameInput}
+                  onChange={(e) => setNicknameInput(e.target.value)}
+                  placeholder="Set custom nickname..."
+                  maxLength={30}
+                  style={{
+                    flex: 1,
+                    background: "rgba(0, 0, 0, 0.35)",
+                    border: "1px solid var(--border-color)",
+                    borderRadius: "6px",
+                    padding: "0.35rem 0.6rem",
+                    color: "#fff",
+                    fontSize: "0.85rem",
+                  }}
+                />
+                <button
+                  type="button"
+                  className="primary-button"
+                  style={{ padding: "0.35rem 0.65rem", fontSize: "0.8rem", cursor: "pointer" }}
+                  onClick={() => {
+                    if (nicknameInput.trim()) {
+                      onRenameContact(nicknameInput.trim());
+                      notify(`Contact renamed to "${nicknameInput.trim()}"`);
+                    }
+                  }}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Quick Action Circles */}
           <div className="drawer-quick-actions">
