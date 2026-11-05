@@ -6,5 +6,6 @@ coverage/
 .firebase/
 firebase-debug.log
 *.tsbuildinfo
+.vercel/
 .env*
 !.env.example
