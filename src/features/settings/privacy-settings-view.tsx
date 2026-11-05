@@ -8,6 +8,8 @@ type PrivacySettingsViewProps = {
   onOpenIdentity: () => void;
   onSignOut: () => void;
   notify: (msg: string) => void;
+  antiScreenshot?: boolean;
+  onToggleAntiScreenshot?: (enabled: boolean) => void;
 };
 
 export function PrivacySettingsView({
@@ -17,6 +19,8 @@ export function PrivacySettingsView({
   onOpenIdentity,
   onSignOut,
   notify,
+  antiScreenshot = true,
+  onToggleAntiScreenshot,
 }: PrivacySettingsViewProps) {
   const [requireLock, setRequireLock] = useState(true);
   const [deleteForBoth, setDeleteForBoth] = useState(true);
@@ -159,6 +163,34 @@ export function PrivacySettingsView({
       {/* Group 3: Privacy */}
       <div className="settings-group">
         <p className="settings-label">PRIVACY</p>
+
+        <div className="setting-row">
+          <span className="setting-icon" style={{ color: "var(--crimson)" }}>
+            <Icon name="camera" size={17} />
+          </span>
+          <span className="setting-copy">
+            <strong>Screenshot &amp; Capture Protection</strong>
+            <small>Block PrintScreen, blur chat during Snipping Tool, and suppress printing</small>
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={antiScreenshot}
+            className={`toggle-switch ${antiScreenshot ? "on" : ""}`}
+            onClick={() => {
+              const next = !antiScreenshot;
+              onToggleAntiScreenshot?.(next);
+              notify(
+                next
+                  ? "Screenshot and screen capture protection enabled."
+                  : "Screenshot protection disabled."
+              );
+            }}
+            aria-label="Toggle screenshot protection"
+          >
+            <span className="toggle-handle" />
+          </button>
+        </div>
 
         <button
           type="button"

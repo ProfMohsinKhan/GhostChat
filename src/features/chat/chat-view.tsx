@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import type { Contact, SampleMessage } from "./types";
 import { Icon } from "@/components/icons";
+import { useScreenshotProtection } from "@/features/security/screenshot-protection";
 
 type ChatViewProps = {
   contact: Contact;
@@ -17,6 +18,8 @@ type ChatViewProps = {
   onReopenSession?: () => void;
   onRenameContact?: (newName: string) => void;
   onDeleteConversation?: () => void;
+  antiScreenshotEnabled?: boolean;
+  onScreenshotAttempt?: (msg: string) => void;
 };
 
 export function ChatView({
@@ -34,10 +37,23 @@ export function ChatView({
   onReopenSession,
   onRenameContact,
   onDeleteConversation,
+  antiScreenshotEnabled = true,
+  onScreenshotAttempt,
 }: ChatViewProps) {
   const [inputText, setInputText] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(contact.name);
+  const [lastAttemptTime, setLastAttemptTime] = useState<string | null>(null);
+
+  const { isScreenObscured, setIsScreenObscured } = useScreenshotProtection({
+    enabled: antiScreenshotEnabled,
+    onAttempt: (msg) => {
+      const timeStr = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      setLastAttemptTime(timeStr);
+      onScreenshotAttempt?.(msg);
+    },
+    blurInactive: true,
+  });
 
   // Sync editedName when contact changes
   React.useEffect(() => {
@@ -55,9 +71,51 @@ export function ChatView({
 
   return (
     <section
-      className="conversation"
+      className={`conversation ${isScreenObscured && antiScreenshotEnabled ? "screen-obscured" : ""}`}
       aria-label={`Conversation with ${contact.name}`}
+      onContextMenu={(e) => {
+        if (antiScreenshotEnabled) {
+          e.preventDefault();
+        }
+      }}
     >
+      {/* Subtle Anti-Camera Watermark */}
+      <div className="chat-watermark-overlay" aria-hidden="true" />
+
+      {/* Ephemeral Privacy Obscurity Shield (blocks Snipping Tool & capture) */}
+      {isScreenObscured && antiScreenshotEnabled && (
+        <div
+          className="screenshot-privacy-shield"
+          onClick={() => setIsScreenObscured(false)}
+          role="alert"
+          aria-live="assertive"
+        >
+          <div
+            className="screenshot-privacy-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="shield-icon-wrap">
+              <Icon name="shieldAlert" size={30} />
+            </div>
+            <h3>Privacy Shield Active</h3>
+            <p>
+              Screenshots and screen recording are prohibited in GhostChat to
+              protect ephemeral conversation confidentiality.
+            </p>
+            <div className="privacy-badge">
+              <Icon name="lock" size={13} />
+              <span>Anti-Screenshot Protection Active</span>
+            </div>
+            <button
+              type="button"
+              className="screenshot-reveal-btn"
+              onClick={() => setIsScreenObscured(false)}
+            >
+              Reveal Messages
+            </button>
+          </div>
+        </div>
+      )}
       {/* Conversation Header */}
       <header className="conversation-header">
         <button
@@ -231,6 +289,14 @@ export function ChatView({
           </button>
         </div>
       </header>
+
+      {/* Screenshot Intercept Alert Pill */}
+      {lastAttemptTime && antiScreenshotEnabled && (
+        <div className="screenshot-attempt-pill" role="status">
+          <Icon name="camera" size={13} />
+          <span>Screenshot attempt intercepted &amp; blocked at {lastAttemptTime}</span>
+        </div>
+      )}
 
       {/* Security Key Changed Alert Banner */}
       {contact.isKeyChanged && (

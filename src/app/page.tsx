@@ -304,6 +304,23 @@ function AuthenticatedWorkspace({
     }
   });
 
+  const [antiScreenshotEnabled, setAntiScreenshotEnabled] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const stored = localStorage.getItem(`ghostchat_anti_screenshot_${uid}`);
+      return stored !== null ? JSON.parse(stored) : true;
+    } catch {
+      return true;
+    }
+  });
+
+  function handleToggleAntiScreenshot(enabled: boolean) {
+    setAntiScreenshotEnabled(enabled);
+    try {
+      localStorage.setItem(`ghostchat_anti_screenshot_${uid}`, JSON.stringify(enabled));
+    } catch {}
+  }
+
   const [isSidebarMenuOpen, setIsSidebarMenuOpen] = useState(false);
 
   function handleSetNickname(pairingId: string, name: string) {
@@ -1181,6 +1198,8 @@ function AuthenticatedWorkspace({
                 }
               }}
               notify={notify}
+              antiScreenshot={antiScreenshotEnabled}
+              onToggleAntiScreenshot={handleToggleAntiScreenshot}
             />
           )}
         </aside>
@@ -1207,6 +1226,8 @@ function AuthenticatedWorkspace({
           onReopenSession={handleReopenSession}
           onRenameContact={(newName) => handleSetNickname(activeContact.id, newName)}
           onDeleteConversation={() => handleHideContact(activeContact.id)}
+          antiScreenshotEnabled={antiScreenshotEnabled}
+          onScreenshotAttempt={(msg) => notify(msg)}
         />
       </div>
 
