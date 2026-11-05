@@ -16,6 +16,7 @@ type ChatViewProps = {
   isDestroyed?: boolean;
   onReopenSession?: () => void;
   onRenameContact?: (newName: string) => void;
+  onDeleteConversation?: () => void;
 };
 
 export function ChatView({
@@ -32,6 +33,7 @@ export function ChatView({
   isDestroyed = false,
   onReopenSession,
   onRenameContact,
+  onDeleteConversation,
 }: ChatViewProps) {
   const [inputText, setInputText] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
@@ -374,19 +376,40 @@ export function ChatView({
             <span style={{ fontSize: "0.85rem", color: "#2dd4bf" }}>
               Messages were wiped. Tap Reopen to continue chatting with this peer.
             </span>
-            <button
-              type="button"
-              className="primary-button"
-              style={{
-                padding: "0.35rem 0.85rem",
-                fontSize: "0.8rem",
-                whiteSpace: "nowrap",
-                cursor: "pointer",
-              }}
-              onClick={onReopenSession}
-            >
-              Reopen Chat
-            </button>
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <button
+                type="button"
+                className="primary-button"
+                style={{
+                  padding: "0.35rem 0.85rem",
+                  fontSize: "0.8rem",
+                  whiteSpace: "nowrap",
+                  cursor: "pointer",
+                }}
+                onClick={onReopenSession}
+              >
+                Reopen Chat
+              </button>
+              {onDeleteConversation && (
+                <button
+                  type="button"
+                  style={{
+                    background: "rgba(239, 68, 68, 0.2)",
+                    color: "#f87171",
+                    border: "1px solid rgba(239, 68, 68, 0.4)",
+                    borderRadius: "6px",
+                    padding: "0.35rem 0.65rem",
+                    fontSize: "0.8rem",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                  onClick={onDeleteConversation}
+                  title="Remove this destroyed conversation from sidebar"
+                >
+                  Remove Chat
+                </button>
+              )}
+            </div>
           </div>
         )}
 

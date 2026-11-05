@@ -10,6 +10,20 @@ import { ChatItem } from "@/features/chat/chat-item";
 import { ChatView } from "@/features/chat/chat-view";
 import { EphemeralControlsModal } from "@/features/chat/ephemeral-controls-modal";
 import { DestroyModal } from "@/features/chat/destroy-modal";
+
+const FALLBACK_EMPTY_CONTACT: Contact = {
+  id: "empty-chats",
+  name: "No Active Chats",
+  initials: "GC",
+  color: "teal",
+  online: false,
+  preview: "Click '+ New Invite' to pair with a contact",
+  time: "",
+  tab: "chats",
+  fingerprint: "0000 0000 0000 0000",
+  linkedDevicesCount: 1,
+  messages: [],
+};
 import { ChatInfoDrawer } from "@/features/chat/chat-info-drawer";
 import { DeviceVerificationModal } from "@/features/chat/device-verification-modal";
 import { PrivacySettingsView } from "@/features/settings/privacy-settings-view";
@@ -270,7 +284,7 @@ function AuthenticatedWorkspace({
     }
   });
 
-  const [hiddenPairings, setHiddenPairings] = useState<string[]>(() => {
+  const [hiddenContactIds, setHiddenContactIds] = useState<string[]>(() => {
     if (typeof window === "undefined") return [];
     try {
       const raw = localStorage.getItem(`ghostchat_hidden_${uid}`);
@@ -279,6 +293,18 @@ function AuthenticatedWorkspace({
       return [];
     }
   });
+
+  const [showDemoContacts, setShowDemoContacts] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const raw = localStorage.getItem(`ghostchat_show_demo_${uid}`);
+      return raw !== null ? JSON.parse(raw) : false;
+    } catch {
+      return false;
+    }
+  });
+
+  const [isSidebarMenuOpen, setIsSidebarMenuOpen] = useState(false);
 
   function handleSetNickname(pairingId: string, name: string) {
     const trimmed = name.trim();
@@ -299,20 +325,55 @@ function AuthenticatedWorkspace({
     }
   }
 
-  function handleHidePairing(pairingId: string, e?: React.MouseEvent) {
+  function handleHideContact(contactId: string, e?: React.MouseEvent) {
     e?.stopPropagation();
-    setHiddenPairings((prev) => {
-      if (prev.includes(pairingId)) return prev;
-      const next = [...prev, pairingId];
+    setHiddenContactIds((prev) => {
+      if (prev.includes(contactId)) return prev;
+      const next = [...prev, contactId];
       try {
         localStorage.setItem(`ghostchat_hidden_${uid}`, JSON.stringify(next));
       } catch {}
       return next;
     });
-    if (activeContactId === pairingId) {
-      setActiveContactId(SAMPLE_CONTACTS[0].id);
-    }
-    notify("Conversation removed from list.");
+    notify("Chat removed from list.");
+  }
+
+  function handleClearAllDestroyed() {
+    const destroyedIds = pairings
+      .filter((p) => p.state === "destroyed" || (p.state === "pending" && p.expiresAt <= Date.now()))
+      .map((p) => p.id);
+    if (destroyedIds.length === 0) return;
+
+    setHiddenContactIds((prev) => {
+      const combined = Array.from(new Set([...prev, ...destroyedIds]));
+      try {
+        localStorage.setItem(`ghostchat_hidden_${uid}`, JSON.stringify(combined));
+      } catch {}
+      return combined;
+    });
+    setIsSidebarMenuOpen(false);
+    notify(`Removed ${destroyedIds.length} inactive chat${destroyedIds.length > 1 ? "s" : ""}.`);
+  }
+
+  function handleToggleDemoContacts() {
+    setShowDemoContacts((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(`ghostchat_show_demo_${uid}`, JSON.stringify(next));
+      } catch {}
+      notify(next ? "Demo contacts enabled." : "Demo contacts hidden.");
+      return next;
+    });
+    setIsSidebarMenuOpen(false);
+  }
+
+  function handleRestoreHiddenChats() {
+    setHiddenContactIds([]);
+    try {
+      localStorage.removeItem(`ghostchat_hidden_${uid}`);
+    } catch {}
+    setIsSidebarMenuOpen(false);
+    notify("All hidden chats restored.");
   }
 
   useEffect(() => {
@@ -376,7 +437,7 @@ function AuthenticatedWorkspace({
   const liveContacts = useMemo<Contact[]>(() => {
     if (!isLiveSession) return [];
     return pairings
-      .filter((pairing) => !hiddenPairings.includes(pairing.id))
+      .filter((pairing) => !hiddenContactIds.includes(pairing.id))
       .map((pairing) => {
       const isPairingDestroyed = pairing.state === "destroyed";
       const isExpired =
@@ -493,7 +554,7 @@ function AuthenticatedWorkspace({
     });
   }, [
     pairings,
-    hiddenPairings,
+    hiddenContactIds,
     nicknames,
     isLiveSession,
     activeTimer,
@@ -504,16 +565,35 @@ function AuthenticatedWorkspace({
     verificationMap,
   ]);
 
+  const destroyedContactsCount = useMemo(() => {
+    return liveContacts.filter((c) => {
+      const p = pairings.find((item) => item.id === c.id);
+      return p && (p.state === "destroyed" || (p.state === "pending" && p.expiresAt <= Date.now()));
+    }).length;
+  }, [liveContacts, pairings]);
+
   // Combine live RTDB pairings with sample contacts
   const allContacts = useMemo(() => {
-    if (liveContacts.length > 0) {
-      return [...liveContacts, ...SAMPLE_CONTACTS];
+    const visibleLive = liveContacts;
+    const visibleSamples = SAMPLE_CONTACTS.filter((c) => !hiddenContactIds.includes(c.id));
+
+    if (isLiveSession) {
+      if (showDemoContacts) {
+        return [...visibleLive, ...visibleSamples];
+      }
+      return visibleLive.length > 0 ? visibleLive : visibleSamples;
     }
-    return SAMPLE_CONTACTS;
-  }, [liveContacts]);
+    return visibleSamples;
+  }, [liveContacts, hiddenContactIds, isLiveSession, showDemoContacts]);
+
+  useEffect(() => {
+    if (allContacts.length > 0 && !allContacts.some((c) => c.id === activeContactId)) {
+      setActiveContactId(allContacts[0].id);
+    }
+  }, [allContacts, activeContactId]);
 
   const activeContact =
-    allContacts.find((c) => c.id === activeContactId) ?? allContacts[0];
+    allContacts.find((c) => c.id === activeContactId) ?? allContacts[0] ?? FALLBACK_EMPTY_CONTACT;
 
   const displayedMessages: SampleMessage[] = useMemo(() => {
     if (isDestroyed) {
@@ -908,15 +988,58 @@ function AuthenticatedWorkspace({
                   >
                     <Icon name="plus" size={17} />
                   </button>
-                  <button
-                    type="button"
-                    className="icon-button"
-                    onClick={() => setActiveModal("pair")}
-                    aria-label="More options"
-                    title="Options"
-                  >
-                    <Icon name="dots" size={17} />
-                  </button>
+                  <div className="sidebar-menu-wrapper">
+                    <button
+                      type="button"
+                      className="icon-button"
+                      onClick={() => setIsSidebarMenuOpen((prev) => !prev)}
+                      aria-label="More options"
+                      title="Chat options"
+                    >
+                      <Icon name="dots" size={17} />
+                    </button>
+                    {isSidebarMenuOpen && (
+                      <div className="sidebar-dropdown-menu">
+                        <button
+                          type="button"
+                          className="sidebar-menu-item"
+                          onClick={() => {
+                            setIsSidebarMenuOpen(false);
+                            setActiveModal("pair");
+                          }}
+                        >
+                          <Icon name="plus" size={14} /> New One-Time Invite
+                        </button>
+                        {destroyedContactsCount > 0 && (
+                          <button
+                            type="button"
+                            className="sidebar-menu-item danger-action"
+                            onClick={handleClearAllDestroyed}
+                          >
+                            <Icon name="trash" size={14} /> Clear Inactive Chats ({destroyedContactsCount})
+                          </button>
+                        )}
+                        {isLiveSession && (
+                          <button
+                            type="button"
+                            className="sidebar-menu-item"
+                            onClick={handleToggleDemoContacts}
+                          >
+                            <Icon name="users" size={14} /> {showDemoContacts ? "Hide Demo Contacts" : "Show Demo Contacts"}
+                          </button>
+                        )}
+                        {hiddenContactIds.length > 0 && (
+                          <button
+                            type="button"
+                            className="sidebar-menu-item"
+                            onClick={handleRestoreHiddenChats}
+                          >
+                            <Icon name="refresh" size={14} /> Restore Hidden Chats ({hiddenContactIds.length})
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </header>
 
@@ -988,6 +1111,21 @@ function AuthenticatedWorkspace({
                 </div>
               )}
 
+              {/* Inactive / Destroyed chats cleanup banner */}
+              {destroyedContactsCount > 0 && (
+                <div className="cleanup-banner">
+                  <span>{destroyedContactsCount} inactive / destroyed chat{destroyedContactsCount > 1 ? "s" : ""}</span>
+                  <button
+                    type="button"
+                    className="cleanup-btn"
+                    onClick={handleClearAllDestroyed}
+                    title="Clear all destroyed chats from list"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              )}
+
               {/* Chat List Items */}
               <div
                 className="chat-list"
@@ -1006,11 +1144,7 @@ function AuthenticatedWorkspace({
                       setRailSection("chats");
                       setMobileShowList(false);
                     }}
-                    onDelete={
-                      isLiveSession && pairings.some((p) => p.id === contact.id)
-                        ? () => handleHidePairing(contact.id)
-                        : undefined
-                    }
+                    onDelete={() => handleHideContact(contact.id)}
                   />
                 ))}
 
@@ -1072,6 +1206,7 @@ function AuthenticatedWorkspace({
           isDestroyed={isDestroyed}
           onReopenSession={handleReopenSession}
           onRenameContact={(newName) => handleSetNickname(activeContact.id, newName)}
+          onDeleteConversation={() => handleHideContact(activeContact.id)}
         />
       </div>
 
@@ -1108,6 +1243,7 @@ function AuthenticatedWorkspace({
           onDestroy={() => setActiveModal("destroy")}
           notify={notify}
           onRenameContact={(newName) => handleSetNickname(activeContact.id, newName)}
+          onDeleteContact={(id) => handleHideContact(id)}
         />
       )}
 

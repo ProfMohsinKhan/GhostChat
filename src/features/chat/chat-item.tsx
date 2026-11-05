@@ -11,11 +11,17 @@ type ChatItemProps = {
 
 export function ChatItem({ contact, isActive, onSelect, onDelete }: ChatItemProps) {
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       className={`chat-item ${isActive ? "active" : ""}`}
       onClick={onSelect}
-      role="listitem"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
       aria-current={isActive ? "true" : undefined}
     >
       <span className="avatar-wrap">
@@ -81,7 +87,7 @@ export function ChatItem({ contact, isActive, onSelect, onDelete }: ChatItemProp
               title="Remove from list"
               aria-label="Remove conversation"
             >
-              <Icon name="close" size={11} />
+              <Icon name="trash" size={12} />
             </button>
           )}
         </span>
@@ -113,6 +119,6 @@ export function ChatItem({ contact, isActive, onSelect, onDelete }: ChatItemProp
           )}
         </span>
       </span>
-    </button>
+    </div>
   );
 }

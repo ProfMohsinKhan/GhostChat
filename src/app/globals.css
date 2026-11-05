@@ -454,6 +454,8 @@ button:disabled {
   align-items: center;
   gap: 12px;
   text-align: left;
+  cursor: pointer;
+  user-select: none;
   transition: all 0.18s ease;
 }
 
@@ -667,18 +669,102 @@ button:disabled {
   border: none;
   color: #64748b;
   cursor: pointer;
-  padding: 2px;
+  padding: 3px;
   border-radius: 4px;
   display: inline-flex;
   align-items: center;
-  opacity: 0.4;
-  transition: opacity 0.2s, color 0.2s;
+  justify-content: center;
+  opacity: 0.45;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.chat-item:hover .chat-item-dismiss {
+  opacity: 0.85;
 }
 
 .chat-item-dismiss:hover {
-  opacity: 1;
+  opacity: 1 !important;
   color: #ef4444;
-  background: rgba(239, 68, 68, 0.15);
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.cleanup-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  margin: 4px 10px 8px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  border-radius: 8px;
+  font-size: 11.5px;
+  color: #fca5a5;
+}
+
+.cleanup-btn {
+  background: rgba(239, 68, 68, 0.25);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.cleanup-btn:hover {
+  background: rgba(239, 68, 68, 0.5);
+}
+
+.sidebar-menu-wrapper {
+  position: relative;
+}
+
+.sidebar-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #111e24;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+  padding: 6px;
+  min-width: 215px;
+  z-index: 99;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #cbd5e1;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.sidebar-menu-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.sidebar-menu-item.danger-action {
+  color: #f87171;
+}
+
+.sidebar-menu-item.danger-action:hover {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
 }
 
 .chat-status-badges {

@@ -11,6 +11,7 @@ type ChatInfoDrawerProps = {
   onDestroy: () => void;
   notify: (msg: string) => void;
   onRenameContact?: (newName: string) => void;
+  onDeleteContact?: (contactId: string) => void;
 };
 
 export function ChatInfoDrawer({
@@ -22,6 +23,7 @@ export function ChatInfoDrawer({
   onDestroy,
   notify,
   onRenameContact,
+  onDeleteContact,
 }: ChatInfoDrawerProps) {
   const [nicknameInput, setNicknameInput] = React.useState(contact.name);
 
@@ -265,6 +267,26 @@ export function ChatInfoDrawer({
             </span>
             <Icon name="chevron" size={16} />
           </button>
+
+          {onDeleteContact && (
+            <button
+              type="button"
+              className="drawer-menu-item subtle-menu-item"
+              onClick={() => {
+                onClose();
+                onDeleteContact(contact.id);
+              }}
+            >
+              <span className="drawer-item-icon" style={{ color: "#f87171" }}>
+                <Icon name="trash" size={17} />
+              </span>
+              <span className="drawer-item-text">
+                <strong style={{ color: "#f87171" }}>Remove from Sidebar List</strong>
+                <small>Hide this conversation from your chat list</small>
+              </span>
+              <Icon name="chevron" size={16} />
+            </button>
+          )}
 
           <button
             type="button"
