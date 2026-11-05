@@ -693,7 +693,6 @@ function AuthenticatedWorkspace({
       try {
         const expiryMs = parseExpiryDurationMs(activeTimer);
         await live.sendMessage(text, expiryMs);
-        notify(`Message encrypted and sent. Auto-purges in ${activeTimer}.`);
       } catch (err) {
         notify(err instanceof Error ? err.message : "Failed to send encrypted message.");
       }
@@ -721,7 +720,6 @@ function AuthenticatedWorkspace({
     };
 
     activeContact.messages.push(newMessage);
-    notify("Encrypted message added to local session memory.");
   }
 
   async function handleConfirmDestroy(permanentlyUnpair: boolean = false) {
