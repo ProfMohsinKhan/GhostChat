@@ -14,6 +14,7 @@ type ChatViewProps = {
   isLive?: boolean;
   isKeyReady?: boolean;
   isDestroyed?: boolean;
+  onReopenSession?: () => void;
 };
 
 export function ChatView({
@@ -28,6 +29,7 @@ export function ChatView({
   isLive,
   isKeyReady = true,
   isDestroyed = false,
+  onReopenSession,
 }: ChatViewProps) {
   const [inputText, setInputText] = useState("");
 
@@ -267,6 +269,39 @@ export function ChatView({
 
       {/* Composer */}
       <div className="composer-wrap">
+        {isDestroyed && onReopenSession && (
+          <div
+            style={{
+              padding: "0.55rem 1rem",
+              background: "rgba(20, 184, 166, 0.12)",
+              border: "1px solid rgba(20, 184, 166, 0.3)",
+              borderRadius: "8px",
+              marginBottom: "0.5rem",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "0.75rem",
+            }}
+          >
+            <span style={{ fontSize: "0.85rem", color: "#2dd4bf" }}>
+              Messages were wiped. Tap Reopen to continue chatting with this peer.
+            </span>
+            <button
+              type="button"
+              className="primary-button"
+              style={{
+                padding: "0.35rem 0.85rem",
+                fontSize: "0.8rem",
+                whiteSpace: "nowrap",
+                cursor: "pointer",
+              }}
+              onClick={onReopenSession}
+            >
+              Reopen Chat
+            </button>
+          </div>
+        )}
+
         <form className="composer" onSubmit={handleSend}>
           <button
             type="button"

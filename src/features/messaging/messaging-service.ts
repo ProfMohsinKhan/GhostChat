@@ -343,3 +343,22 @@ export async function destroyConversationForBoth({
   clearConversationDecryptedCache(conversationId);
   clearConversationSession(conversationId);
 }
+
+/**
+ * Re-activates a previously closed or destroyed conversation session, advancing generation.
+ */
+export async function reopenConversation({
+  conversationId,
+  currentGeneration = 1,
+}: {
+  conversationId: string;
+  currentGeneration?: number;
+}): Promise<void> {
+  const { database } = getFirebaseClient();
+  const nextGen = currentGeneration + 1;
+  const updates: Record<string, unknown> = {
+    [`conversations/${conversationId}/state`]: "active",
+    [`conversations/${conversationId}/generation`]: nextGen,
+  };
+  await update(ref(database), updates);
+}

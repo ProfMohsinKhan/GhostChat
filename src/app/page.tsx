@@ -20,6 +20,7 @@ import { IdentityDialog } from "@/features/identity/identity-dialog";
 import { useDeviceIdentity } from "@/features/identity/use-device-identity";
 import {
   destroyConversationForBoth,
+  reopenConversation,
   parseExpiryDurationMs,
 } from "@/features/messaging/messaging-service";
 import { useLiveMessages } from "@/features/messaging/use-live-messages";
@@ -594,6 +595,19 @@ function AuthenticatedWorkspace({
     );
   }
 
+  async function handleReopenSession() {
+    if (!currentPairing) return;
+    try {
+      await reopenConversation({
+        conversationId: currentPairing.id,
+        currentGeneration: currentPairing.generation ?? 1,
+      });
+      notify("Chat session reopened! Connection active.");
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "Failed to reopen conversation.");
+    }
+  }
+
   async function handleToggleVerified(isVerified: boolean) {
     if (!currentPairing || !peerUid || !peerAgreementKey) {
       activeContact.verified = isVerified;
@@ -976,6 +990,7 @@ function AuthenticatedWorkspace({
           isLive={isLivePairing}
           isKeyReady={Boolean(peerAgreementKey)}
           isDestroyed={isDestroyed}
+          onReopenSession={handleReopenSession}
         />
       </div>
 
