@@ -2,16 +2,17 @@ import type { NextConfig } from "next";
 
 const cspHeader = `
   default-src 'self';
-  script-src 'self' 'unsafe-inline' 'unsafe-eval';
+  script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.firebaseio.com https://*.firebasedatabase.app;
   style-src 'self' 'unsafe-inline';
   img-src 'self' blob: data:;
   font-src 'self';
-  connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.googleapis.com;
+  connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebasedatabase.app https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.googleapis.com https://*.firebaseapp.com;
+  frame-src 'self' https://*.firebaseapp.com;
+  worker-src 'self' blob:;
   frame-ancestors 'none';
   form-action 'self';
   base-uri 'self';
   object-src 'none';
-  upgrade-insecure-requests;
 `
   .replace(/\s{2,}/g, " ")
   .trim();

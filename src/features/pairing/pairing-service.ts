@@ -44,7 +44,7 @@ export async function createPairing(
     ownerUid,
     state: "pending",
     createdAt: serverTimestamp(),
-    expiresAt: Date.now() + INVITE_LIFETIME_MS,
+    expiresAt: Date.now() + INVITE_LIFETIME_MS - 60_000,
     generation: 1,
   };
   if (ownerAgreementKey) {

@@ -37,8 +37,13 @@ export function PairingModal({
       setCreatedCode(nextCode);
       onPaired(nextCode);
       notify("Private invite code generated. Valid for 24 hours.");
-    } catch {
-      setError("The invite could not be created. Check your connection and try again.");
+    } catch (createErr) {
+      console.error("Failed to create pairing:", createErr);
+      setError(
+        createErr instanceof Error
+          ? createErr.message
+          : "The invite could not be created. Check your connection and try again."
+      );
     } finally {
       setPending(false);
     }

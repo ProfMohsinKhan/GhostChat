@@ -69,6 +69,7 @@ self.addEventListener("fetch", (event) => {
   // Rule 2: Dynamic backend, Firebase RTDB, and Auth requests are strictly bypassed
   if (
     url.hostname.includes("firebaseio.com") ||
+    url.hostname.includes("firebasedatabase.app") ||
     url.hostname.includes("googleapis.com") ||
     url.hostname.includes("identitytoolkit") ||
     url.hostname.includes("securetoken") ||
