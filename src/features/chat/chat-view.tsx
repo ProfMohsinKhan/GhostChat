@@ -609,6 +609,62 @@ function MessageBubble({
 }) {
   const [isRevealed, setIsRevealed] = useState(false);
 
+  // Auto-cancel reveal on any blur, touchcancel, touchend, or visibility change
+  useEffect(() => {
+    if (!isRevealed) return;
+    function cancelReveal() {
+      setIsRevealed(false);
+    }
+    window.addEventListener("blur", cancelReveal);
+    window.addEventListener("touchcancel", cancelReveal);
+    window.addEventListener("touchend", cancelReveal);
+    window.addEventListener("resize", cancelReveal);
+    document.addEventListener("visibilitychange", cancelReveal);
+    return () => {
+      window.removeEventListener("blur", cancelReveal);
+      window.removeEventListener("touchcancel", cancelReveal);
+      window.removeEventListener("touchend", cancelReveal);
+      window.removeEventListener("resize", cancelReveal);
+      document.removeEventListener("visibilitychange", cancelReveal);
+    };
+  }, [isRevealed]);
+
+  function handleTouchStart(e: React.TouchEvent) {
+    if (e.touches.length > 1) {
+      // Multi-touch gesture (e.g. 3-finger screenshot or side-grip) -> Cancel instantly!
+      setIsRevealed(false);
+      return;
+    }
+    if (isStealth) {
+      setIsRevealed(true);
+    }
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    if (e.touches.length > 1) {
+      setIsRevealed(false);
+    }
+  }
+
+  function handleTouchEnd() {
+    setIsRevealed(false);
+  }
+
+  function handlePointerDown(e: React.PointerEvent) {
+    if (e.pointerType === "touch") return; // Handled exclusively by touch events
+    if (isStealth) setIsRevealed(true);
+  }
+
+  function handlePointerUp(e: React.PointerEvent) {
+    if (e.pointerType === "touch") return;
+    setIsRevealed(false);
+  }
+
+  function handlePointerLeave(e: React.PointerEvent) {
+    if (e.pointerType === "touch") return;
+    setIsRevealed(false);
+  }
+
   if (message.sender === "system") {
     return (
       <div className="system-note system-alert-note" id={`msg-${message.id}`}>
@@ -632,12 +688,13 @@ function MessageBubble({
         {message.attachment ? (
           <div
             className={`attachment-card ${isStealth ? "stealth-bubble" : ""} ${isRevealed ? "revealed" : ""}`}
-            onPointerDown={() => isStealth && setIsRevealed(true)}
-            onPointerUp={() => isStealth && setIsRevealed(false)}
-            onPointerLeave={() => isStealth && setIsRevealed(false)}
-            onTouchStart={() => isStealth && setIsRevealed(true)}
-            onTouchEnd={() => isStealth && setIsRevealed(false)}
-            onTouchCancel={() => isStealth && setIsRevealed(false)}
+            onPointerDown={handlePointerDown}
+            onPointerUp={handlePointerUp}
+            onPointerLeave={handlePointerLeave}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
           >
             {message.replyTo && (
               <div
@@ -677,12 +734,13 @@ function MessageBubble({
         ) : (
           <div
             className={`message-bubble ${isError ? "bubble-error" : ""} ${isStealth ? "stealth-bubble" : ""} ${isRevealed ? "revealed" : ""}`}
-            onPointerDown={() => isStealth && setIsRevealed(true)}
-            onPointerUp={() => isStealth && setIsRevealed(false)}
-            onPointerLeave={() => isStealth && setIsRevealed(false)}
-            onTouchStart={() => isStealth && setIsRevealed(true)}
-            onTouchEnd={() => isStealth && setIsRevealed(false)}
-            onTouchCancel={() => isStealth && setIsRevealed(false)}
+            onPointerDown={handlePointerDown}
+            onPointerUp={handlePointerUp}
+            onPointerLeave={handlePointerLeave}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
             style={
               isError
                 ? {

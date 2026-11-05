@@ -207,20 +207,13 @@ export function useScreenshotProtection({
     }
 
     function onFocus() {
-      // Delay un-blackout to ensure snipping tool cursor has completely detached
+      // Delay un-blackout to ensure capture tool cursor has detached
       window.setTimeout(() => {
         if (document.hasFocus()) {
           applyBlackout(false);
           setIsScreenObscured(false);
         }
       }, 150);
-    }
-
-    function onPointerDown() {
-      if (document.hasFocus()) {
-        applyBlackout(false);
-        setIsScreenObscured(false);
-      }
     }
 
     function onVisibilityChange() {
@@ -256,7 +249,6 @@ export function useScreenshotProtection({
     window.addEventListener("keyup", onKeyUp, { capture: true });
     window.addEventListener("blur", onBlur);
     window.addEventListener("focus", onFocus);
-    window.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("beforeprint", onBeforePrint);
     window.addEventListener("afterprint", onAfterPrint);
@@ -266,7 +258,6 @@ export function useScreenshotProtection({
       window.removeEventListener("keyup", onKeyUp, { capture: true });
       window.removeEventListener("blur", onBlur);
       window.removeEventListener("focus", onFocus);
-      window.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("beforeprint", onBeforePrint);
       window.removeEventListener("afterprint", onAfterPrint);

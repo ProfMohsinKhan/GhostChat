@@ -3759,31 +3759,66 @@ html.force-screenshot-blackout::after {
 }
 
 .stealth-bubble {
-  filter: blur(14px) brightness(0.65);
+  filter: blur(16px) brightness(0.4) saturate(0.6) !important;
   user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-touch-callout: none !important;
   cursor: pointer;
-  transition: filter 0.15s ease-out;
+  transition: filter 0.12s ease-out;
   position: relative;
 }
 
-.stealth-bubble:hover,
-.stealth-bubble:active,
-.stealth-bubble.revealed {
-  filter: none !important;
+/* ONLY allow mouse hover on real desktop pointer devices (never sticky on mobile touch) */
+@media (hover: hover) and (pointer: fine) {
+  .stealth-bubble:hover {
+    filter: none !important;
+  }
 }
 
-.stealth-bubble:not(:hover):not(:active):not(.revealed)::after {
+/* For all touch devices (Android Chrome, iOS Safari), unblur ONLY when actively held with .revealed class */
+.stealth-bubble.revealed {
+  filter: none !important;
+  transition: none !important;
+}
+
+/* When unblurred on touch or mouse, render an anti-capture confidential watermark */
+.stealth-bubble.revealed::before {
+  content: "🔒 CONFIDENTIAL · NO CAPTURE";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-12deg);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: rgba(45, 212, 191, 0.18);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 5;
+}
+
+/* Eye badge: shown on all frosted messages */
+.stealth-bubble:not(.revealed)::after {
   content: "👁️ Hold to View";
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11.5px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   color: #5eead4;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
   pointer-events: none;
+  background: rgba(5, 12, 18, 0.45);
+  border-radius: inherit;
+  backdrop-filter: blur(2px);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .stealth-bubble:hover::after {
+    display: none !important;
+  }
 }
 
 /* 8. WhatsApp-Style Quoted Message Reply System */
