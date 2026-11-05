@@ -17,6 +17,7 @@ import type {
   LiveChatMessage,
   TransportMessage,
 } from "@/features/crypto/types";
+import type { QuotedMessage } from "@/features/chat/types";
 
 export const DEFAULT_MESSAGE_EXPIRY_MS = 20 * 60 * 1000; // 20 minutes
 
@@ -61,6 +62,7 @@ export async function sendEncryptedMessage({
   plaintext,
   expiryDurationMs = DEFAULT_MESSAGE_EXPIRY_MS,
   sequence,
+  replyTo,
 }: {
   conversationId: string;
   generation: number;
@@ -70,16 +72,21 @@ export async function sendEncryptedMessage({
   plaintext: string;
   expiryDurationMs?: number;
   sequence?: number;
+  replyTo?: QuotedMessage;
 }): Promise<string> {
   const { database } = getFirebaseClient();
   const now = Date.now();
   const expiresAt = now + expiryDurationMs;
   const seq = sequence ?? Math.floor(now / 1000);
 
+  const rawPayload = replyTo
+    ? JSON.stringify({ text: plaintext, replyTo })
+    : plaintext;
+
   const envelope = await secureEncrypt(
     senderUid,
     recipientAgreementPublicKey,
-    plaintext,
+    rawPayload,
     conversationId,
     generation,
     seq,
@@ -107,7 +114,7 @@ export async function sendEncryptedMessage({
 
   // Pre-seed local decrypted cache for immediate zero-lag display
   const cacheKey = `${conversationId}:${generation}:${messageId}`;
-  decryptedMessageCache.set(cacheKey, plaintext);
+  decryptedMessageCache.set(cacheKey, rawPayload);
 
   await update(ref(database), {
     [messagePath]: messageRecord,
@@ -214,10 +221,29 @@ export function subscribeToLiveMessages({
         );
         const expiresInStr = `${remainingMinutes}m`;
 
+        let displayText = decryptedText;
+        let replyTo: QuotedMessage | undefined = undefined;
+
+        if (decryptedText.startsWith("{") && decryptedText.includes('"text":')) {
+          try {
+            const parsed = JSON.parse(decryptedText) as {
+              text?: string;
+              replyTo?: QuotedMessage;
+            };
+            if (typeof parsed.text === "string") {
+              displayText = parsed.text;
+              replyTo = parsed.replyTo;
+            }
+          } catch {
+            // fallback to raw text
+          }
+        }
+
         decryptedList.push({
           id: item.id,
           sender: isMe ? "me" : "them",
-          text: decryptedText,
+          text: displayText,
+          replyTo,
           time: timeStr,
           timestamp: createdAtMs,
           delivered: Boolean(item.delivered),

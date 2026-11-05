@@ -18,8 +18,9 @@
     "test:pwa": "tsx --test tests/pwa-shell.test.ts",
     "test:hardening": "tsx --test tests/security-hardening.test.ts",
     "test:screenshot": "tsx --test tests/screenshot-protection.test.ts",
+    "test:reply": "tsx --test tests/message-reply.test.ts",
     "test:audit": "tsx --test tests/e2e-audit.test.ts",
-    "test": "tsx --test tests/identity.test.ts && tsx --test tests/crypto-session.test.ts && tsx --test tests/realtime-messaging.test.ts && tsx --test tests/expiry-cleanup.test.ts && tsx --test tests/destroy-generation.test.ts && tsx --test tests/presence-typing.test.ts && tsx --test tests/device-verification.test.ts && tsx --test tests/screenshot-protection.test.ts && tsx --test tests/pwa-shell.test.ts && tsx --test tests/security-hardening.test.ts && tsx --test tests/e2e-audit.test.ts",
+    "test": "tsx --test tests/identity.test.ts && tsx --test tests/crypto-session.test.ts && tsx --test tests/realtime-messaging.test.ts && tsx --test tests/expiry-cleanup.test.ts && tsx --test tests/destroy-generation.test.ts && tsx --test tests/presence-typing.test.ts && tsx --test tests/device-verification.test.ts && tsx --test tests/screenshot-protection.test.ts && tsx --test tests/message-reply.test.ts && tsx --test tests/pwa-shell.test.ts && tsx --test tests/security-hardening.test.ts && tsx --test tests/e2e-audit.test.ts",
     "test:rules": "firebase emulators:exec --project demo-ghostchat-phase3 --only database \"node --test tests/database.rules.test.mjs\""
   },
   "dependencies": {

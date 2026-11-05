@@ -40,6 +40,7 @@ export type IconName =
   | "download"
   | "device"
   | "refresh"
+  | "reply"
   | "info";
 
 export const iconPaths: Record<IconName, React.ReactNode> = {
@@ -255,6 +256,12 @@ export const iconPaths: Record<IconName, React.ReactNode> = {
       <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
       <path d="M3 22v-6h6" />
       <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+    </>
+  ),
+  reply: (
+    <>
+      <polyline points="9 17 4 12 9 7" />
+      <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
     </>
   ),
   info: (

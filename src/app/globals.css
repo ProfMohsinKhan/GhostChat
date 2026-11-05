@@ -3786,6 +3786,217 @@ html.force-screenshot-blackout::after {
   pointer-events: none;
 }
 
+/* 8. WhatsApp-Style Quoted Message Reply System */
+
+/* Composer Reply Banner */
+.composer-reply-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgba(14, 25, 33, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: none;
+  border-radius: 14px 14px 0 0;
+  padding: 8px 14px 8px 12px;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 900px;
+  box-sizing: border-box;
+  animation: slideUpReply 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes slideUpReply {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.reply-bar-accent {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, #2dd4bf, #0d9488);
+  border-radius: 4px 0 0 0;
+}
+
+.reply-bar-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  padding-left: 6px;
+}
+
+.reply-bar-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 2px;
+}
+
+.reply-bar-icon {
+  color: #2dd4bf;
+  flex-shrink: 0;
+}
+
+.reply-bar-sender {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #2dd4bf;
+  letter-spacing: 0.3px;
+}
+
+.reply-bar-snippet {
+  font-size: 12px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: calc(100vw - 120px);
+}
+
+.reply-bar-cancel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.reply-bar-cancel:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+/* Quoted Reply Box inside Message Bubble */
+.quoted-reply-box {
+  background: rgba(0, 0, 0, 0.26);
+  border-left: 3px solid #2dd4bf;
+  border-radius: 6px;
+  padding: 5px 9px 6px 9px;
+  margin-bottom: 7px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.quoted-reply-box:hover {
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.quoted-reply-box.quoted-mine {
+  border-left-color: #38bdf8;
+}
+
+.quoted-reply-box.quoted-theirs {
+  border-left-color: #2dd4bf;
+}
+
+.quoted-sender {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #2dd4bf;
+  margin-bottom: 2px;
+}
+
+.quoted-mine .quoted-sender {
+  color: #38bdf8;
+}
+
+.quoted-icon {
+  opacity: 0.85;
+}
+
+.quoted-snippet {
+  font-size: 11.5px;
+  color: #cbd5e1;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+}
+
+/* Bubble Reply Trigger Button */
+.bubble-reply-trigger {
+  opacity: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  margin-bottom: 12px;
+}
+
+.message-row:hover .bubble-reply-trigger,
+.bubble-reply-trigger:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  .bubble-reply-trigger {
+    opacity: 0.65;
+    pointer-events: auto;
+  }
+}
+
+.bubble-reply-trigger:hover {
+  background: rgba(20, 184, 166, 0.22);
+  border-color: rgba(20, 184, 166, 0.4);
+  color: #2dd4bf;
+  transform: scale(1.08);
+}
+
+/* Jump-to-message Highlight Pulse (WhatsApp Style) */
+@keyframes messageHighlightPulse {
+  0% {
+    box-shadow: 0 0 0 4px rgba(45, 212, 191, 0.55);
+    background-color: rgba(45, 212, 191, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(45, 212, 191, 0.3);
+    background-color: rgba(45, 212, 191, 0.1);
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+
+.message-row.highlight-flash .message-bubble,
+.message-row.highlight-flash .attachment-card {
+  animation: messageHighlightPulse 1.4s ease-out;
+}
+
+
 
 
 

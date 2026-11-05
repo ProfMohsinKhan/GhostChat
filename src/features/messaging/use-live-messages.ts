@@ -9,6 +9,7 @@ import {
   clearConversationDecryptedCache,
 } from "./messaging-service";
 import type { LiveChatMessage } from "@/features/crypto/types";
+import type { QuotedMessage } from "@/features/chat/types";
 
 type UseLiveMessagesProps = {
   conversationId: string | null;
@@ -115,7 +116,11 @@ export function useLiveMessages({
   }, [enabled, conversationId, generation, messages]);
 
   const send = useCallback(
-    async (text: string, expiryDurationMs = DEFAULT_MESSAGE_EXPIRY_MS) => {
+    async (
+      text: string,
+      expiryDurationMs = DEFAULT_MESSAGE_EXPIRY_MS,
+      replyTo?: QuotedMessage
+    ) => {
       if (isDestroyed) {
         throw new Error(
           "This conversation has been permanently destroyed for both users."
@@ -143,6 +148,7 @@ export function useLiveMessages({
         senderAgreementPublicKey: senderAgreementKey,
         plaintext: text,
         expiryDurationMs,
+        replyTo,
       });
     },
     [

@@ -2,6 +2,13 @@ export type ContactTab = "chats" | "rooms" | "requests";
 
 export type MessageType = "text" | "attachment" | "system";
 
+export type QuotedMessage = {
+  id: string;
+  sender: "me" | "them";
+  senderName?: string;
+  text: string;
+};
+
 export type SampleMessage = {
   id: string;
   sender: "me" | "them" | "system";
@@ -12,6 +19,7 @@ export type SampleMessage = {
   expiresIn?: string;
   isDecrypted?: boolean;
   decryptionError?: boolean;
+  replyTo?: QuotedMessage;
   attachment?: {
     name: string;
     size: string;

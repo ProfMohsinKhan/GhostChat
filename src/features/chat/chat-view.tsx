@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import type { Contact, SampleMessage } from "./types";
+import type { Contact, QuotedMessage, SampleMessage } from "./types";
 import { Icon } from "@/components/icons";
 import { useScreenshotProtection } from "@/features/security/screenshot-protection";
 
@@ -10,7 +10,7 @@ type ChatViewProps = {
   onOpenInfo: () => void;
   onOpenEphemeralModal: () => void;
   onOpenDestroyModal: () => void;
-  onSendMessage: (text: string) => void;
+  onSendMessage: (text: string, replyTo?: QuotedMessage) => void;
   onTyping?: (isTyping: boolean) => void;
   isLive?: boolean;
   isKeyReady?: boolean;
@@ -44,9 +44,11 @@ export function ChatView({
   const [lastAttemptTime, setLastAttemptTime] = useState<string | null>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [stealthMode, setStealthMode] = useState<boolean>(true);
+  const [replyingTo, setReplyingTo] = useState<QuotedMessage | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageAreaRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const { isScreenObscured, setIsScreenObscured } = useScreenshotProtection({
     enabled: antiScreenshotEnabled,
@@ -86,17 +88,45 @@ export function ChatView({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }
 
+  function handleInitiateReply(msg: SampleMessage) {
+    if (isDestroyed) return;
+    setReplyingTo({
+      id: msg.id,
+      sender: msg.sender === "me" ? "me" : "them",
+      senderName: msg.sender === "me" ? "You" : contact.name,
+      text: msg.text || (msg.attachment ? msg.attachment.name : ""),
+    });
+    inputRef.current?.focus();
+  }
+
+  function handleCancelReply() {
+    setReplyingTo(null);
+  }
+
+  function handleJumpToMessage(msgId: string) {
+    const el = document.getElementById(`msg-${msgId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("highlight-flash");
+      setTimeout(() => {
+        el.classList.remove("highlight-flash");
+      }, 1500);
+    }
+  }
+
   // Sync editedName when contact changes
   useEffect(() => {
     setEditedName(contact.name);
     setIsEditingName(false);
+    setReplyingTo(null);
   }, [contact.id, contact.name]);
 
   function handleSend(e: React.FormEvent) {
     e.preventDefault();
     if (isDestroyed || !inputText.trim()) return;
-    onSendMessage(inputText.trim());
+    onSendMessage(inputText.trim(), replyingTo ?? undefined);
     setInputText("");
+    setReplyingTo(null);
     onTyping?.(false);
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -405,7 +435,13 @@ export function ChatView({
         </div>
 
         {contact.messages.map((message) => (
-          <MessageBubble key={message.id} message={message} stealthMode={stealthMode} />
+          <MessageBubble
+            key={message.id}
+            message={message}
+            stealthMode={stealthMode}
+            onReply={handleInitiateReply}
+            onJumpToMessage={handleJumpToMessage}
+          />
         ))}
 
         {contact.isTyping && (
@@ -484,6 +520,31 @@ export function ChatView({
           </div>
         )}
 
+        {/* WhatsApp-Style Quoted Reply Preview Bar in Composer */}
+        {replyingTo && (
+          <div className="composer-reply-bar" role="region" aria-label="Replying to message">
+            <div className="reply-bar-accent" />
+            <div className="reply-bar-body">
+              <div className="reply-bar-header">
+                <Icon name="reply" size={12} className="reply-bar-icon" />
+                <span className="reply-bar-sender">
+                  Replying to {replyingTo.senderName}
+                </span>
+              </div>
+              <div className="reply-bar-snippet">{replyingTo.text}</div>
+            </div>
+            <button
+              type="button"
+              className="reply-bar-cancel"
+              onClick={handleCancelReply}
+              title="Cancel reply (Esc)"
+              aria-label="Cancel reply"
+            >
+              <Icon name="close" size={14} />
+            </button>
+          </div>
+        )}
+
         <form className="composer minimalist-composer" onSubmit={handleSend}>
           <button
             type="button"
@@ -496,6 +557,7 @@ export function ChatView({
           </button>
 
           <input
+            ref={inputRef}
             type="text"
             value={inputText}
             onChange={(e) => {
@@ -503,9 +565,17 @@ export function ChatView({
               setInputText(val);
               onTyping?.(val.trim().length > 0);
             }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape" && replyingTo) {
+                e.preventDefault();
+                handleCancelReply();
+              }
+            }}
             placeholder={
               isDestroyed
                 ? "This conversation was permanently destroyed."
+                : replyingTo
+                ? `Reply to ${replyingTo.senderName}...`
                 : "Type a message..."
             }
             disabled={isDestroyed}
@@ -529,15 +599,19 @@ export function ChatView({
 function MessageBubble({
   message,
   stealthMode = false,
+  onReply,
+  onJumpToMessage,
 }: {
   message: SampleMessage;
   stealthMode?: boolean;
+  onReply?: (msg: SampleMessage) => void;
+  onJumpToMessage?: (msgId: string) => void;
 }) {
   const [isRevealed, setIsRevealed] = useState(false);
 
   if (message.sender === "system") {
     return (
-      <div className="system-note system-alert-note">
+      <div className="system-note system-alert-note" id={`msg-${message.id}`}>
         <Icon name="info" size={13} />
         <span>{message.text}</span>
       </div>
@@ -549,7 +623,11 @@ function MessageBubble({
   const isStealth = stealthMode;
 
   return (
-    <div className={`message-row ${isMine ? "mine" : "theirs"}`}>
+    <div
+      className={`message-row ${isMine ? "mine" : "theirs"}`}
+      id={`msg-${message.id}`}
+      onDoubleClick={() => onReply?.(message)}
+    >
       <div className="bubble-wrap">
         {message.attachment ? (
           <div
@@ -561,6 +639,29 @@ function MessageBubble({
             onTouchEnd={() => isStealth && setIsRevealed(false)}
             onTouchCancel={() => isStealth && setIsRevealed(false)}
           >
+            {message.replyTo && (
+              <div
+                className={`quoted-reply-box ${
+                  message.replyTo.sender === "me" ? "quoted-mine" : "quoted-theirs"
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onJumpToMessage?.(message.replyTo!.id);
+                }}
+                title="Click to jump to quoted message"
+                role="button"
+                tabIndex={0}
+              >
+                <div className="quoted-sender">
+                  <Icon name="reply" size={10} className="quoted-icon" />
+                  <span>
+                    {message.replyTo.senderName ??
+                      (message.replyTo.sender === "me" ? "You" : "Contact")}
+                  </span>
+                </div>
+                <div className="quoted-snippet">{message.replyTo.text}</div>
+              </div>
+            )}
             <div className="attachment-icon">
               <Icon name="fileText" size={20} />
             </div>
@@ -592,6 +693,31 @@ function MessageBubble({
                 : undefined
             }
           >
+            {/* WhatsApp-Style Quoted Message Preview inside Bubble */}
+            {message.replyTo && (
+              <div
+                className={`quoted-reply-box ${
+                  message.replyTo.sender === "me" ? "quoted-mine" : "quoted-theirs"
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onJumpToMessage?.(message.replyTo!.id);
+                }}
+                title="Click to jump to quoted message"
+                role="button"
+                tabIndex={0}
+              >
+                <div className="quoted-sender">
+                  <Icon name="reply" size={10} className="quoted-icon" />
+                  <span>
+                    {message.replyTo.senderName ??
+                      (message.replyTo.sender === "me" ? "You" : "Contact")}
+                  </span>
+                </div>
+                <div className="quoted-snippet">{message.replyTo.text}</div>
+              </div>
+            )}
+
             {isError && (
               <span className="tamper-warning-icon" title="Tampering detected">
                 <Icon name="shieldAlert" size={13} />{" "}
@@ -621,6 +747,22 @@ function MessageBubble({
           )}
         </div>
       </div>
+
+      {/* Floating WhatsApp-Style Quick Reply Trigger */}
+      {onReply && (
+        <button
+          type="button"
+          className="bubble-reply-trigger"
+          onClick={(e) => {
+            e.stopPropagation();
+            onReply(message);
+          }}
+          title="Reply to message (or double click)"
+          aria-label="Reply to message"
+        >
+          <Icon name="reply" size={13} />
+        </button>
+      )}
     </div>
   );
 }

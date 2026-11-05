@@ -1,3 +1,5 @@
+import type { QuotedMessage } from "@/features/chat/types";
+
 export type EncryptedEnvelope = {
   ciphertext: string; // base64url encoded AES-256-GCM ciphertext + 128-bit tag for recipient
   senderCiphertext?: string; // base64url encoded AES-256-GCM ciphertext + 128-bit tag for sender
@@ -38,5 +40,6 @@ export type LiveChatMessage = {
   expiresAt: number;
   isDecrypted: boolean;
   decryptionError?: boolean;
+  replyTo?: QuotedMessage;
 };
 
