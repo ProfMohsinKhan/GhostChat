@@ -8,6 +8,7 @@ import {
   sendIceCandidate,
   endCallSignal,
   declineCallSignal,
+  notifyCallRinging,
   subscribeToCallSignal,
 } from "./call-signaling-service";
 import { callAudio } from "./call-ringtone";
@@ -92,27 +93,34 @@ export async function diagnoseMicrophoneError(err: unknown): Promise<{
 
 interface UseWebRTCCallProps {
   conversationId: string | null;
+  activePairingIds?: string[];
   currentUserUid: string;
   peerName?: string;
   enabled?: boolean;
   onIncomingCallBackground?: (callerName: string) => void;
+  onAutoSwitchConversation?: (conversationId: string) => void;
   onError?: (errorMessage: string) => void;
 }
 
 export function useWebRTCCall({
   conversationId,
+  activePairingIds = [],
   currentUserUid,
   peerName = "Peer",
   enabled = true,
   onIncomingCallBackground,
+  onAutoSwitchConversation,
   onError,
 }: UseWebRTCCallProps) {
   const [callState, setCallState] = useState<CallState>("idle");
+  const [callRole, setCallRole] = useState<"caller" | "receiver" | null>(null);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [durationSec, setDurationSec] = useState<number>(0);
   const [activeSignal, setActiveSignal] = useState<CallSignalData | null>(null);
   const [micBlocked, setMicBlocked] = useState<boolean>(false);
   const [micBlockedReason, setMicBlockedReason] = useState<MicBlockedReason>(null);
+  const [isEchoTest, setIsEchoTest] = useState<boolean>(false);
+  const [micLevel, setMicLevel] = useState<number>(0);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -122,6 +130,9 @@ export function useWebRTCCall({
   const candidatesQueueRef = useRef<RTCIceCandidateInit[]>([]);
   const callStateRef = useRef<CallState>("idle");
   const addedCandidatesRef = useRef<Set<string>>(new Set());
+  const echoCtxRef = useRef<AudioContext | null>(null);
+  const echoAnimRef = useRef<number | null>(null);
+  const callTimeoutRef = useRef<number | null>(null);
 
   // Keep callStateRef synchronized with callState
   useEffect(() => {
@@ -146,6 +157,24 @@ export function useWebRTCCall({
 
   const cleanupMediaAndPeer = useCallback(() => {
     callAudio.stop();
+
+    if (callTimeoutRef.current !== null) {
+      window.clearTimeout(callTimeoutRef.current);
+      callTimeoutRef.current = null;
+    }
+
+    if (echoAnimRef.current !== null) {
+      cancelAnimationFrame(echoAnimRef.current);
+      echoAnimRef.current = null;
+    }
+
+    if (echoCtxRef.current && echoCtxRef.current.state !== "closed") {
+      echoCtxRef.current.close().catch(() => {});
+      echoCtxRef.current = null;
+    }
+
+    setIsEchoTest(false);
+    setMicLevel(0);
 
     if (durationTimerRef.current !== null) {
       window.clearInterval(durationTimerRef.current);
@@ -179,8 +208,37 @@ export function useWebRTCCall({
     candidatesQueueRef.current = [];
     addedCandidatesRef.current.clear();
     callRoleRef.current = null;
+    setCallRole(null);
     setIsMuted(false);
   }, []);
+
+  // Multi-pairing incoming call background listener
+  useEffect(() => {
+    if (!enabled || !activePairingIds || activePairingIds.length === 0 || !currentUserUid) return;
+
+    const unsubs: (() => void)[] = [];
+    for (const pId of activePairingIds) {
+      if (pId === conversationId) continue;
+      const unsub = subscribeToCallSignal({
+        conversationId: pId,
+        onSignal: (signal) => {
+          if (
+            signal &&
+            signal.state === "calling" &&
+            signal.callerUid !== currentUserUid &&
+            callStateRef.current === "idle"
+          ) {
+            onAutoSwitchConversation?.(pId);
+          }
+        },
+      });
+      unsubs.push(unsub);
+    }
+
+    return () => {
+      for (const u of unsubs) u();
+    };
+  }, [enabled, activePairingIds, conversationId, currentUserUid, onAutoSwitchConversation]);
 
   // Subscribe to call signaling updates for this conversation
   useEffect(() => {
@@ -204,10 +262,22 @@ export function useWebRTCCall({
         if (signal.state === "calling" && signal.callerUid !== currentUserUid) {
           if (callStateRef.current === "idle") {
             callRoleRef.current = "receiver";
+            setCallRole("receiver");
             setCallState("ringing");
             callAudio.startIncomingRing();
             onIncomingCallBackground?.(peerName);
+            // Notify caller that receiver's device is ringing!
+            notifyCallRinging({ conversationId }).catch(() => {});
           }
+        }
+
+        // Case 2b: Receiver is actively ringing -> Caller updates to "ringing"
+        if (
+          signal.state === "ringing" &&
+          callRoleRef.current === "caller" &&
+          callStateRef.current === "calling"
+        ) {
+          setCallState("ringing");
         }
 
         // Case 3: Outgoing call answered (Caller receives Answer)
@@ -219,6 +289,10 @@ export function useWebRTCCall({
           pcRef.current.signalingState === "have-local-offer"
         ) {
           callAudio.stop();
+          if (callTimeoutRef.current !== null) {
+            window.clearTimeout(callTimeoutRef.current);
+            callTimeoutRef.current = null;
+          }
           try {
             await pcRef.current.setRemoteDescription(
               new RTCSessionDescription(signal.answer)
@@ -322,6 +396,7 @@ export function useWebRTCCall({
 
     cleanupMediaAndPeer();
     callRoleRef.current = "caller";
+    setCallRole("caller");
     setCallState("calling");
     callAudio.startOutgoingRing();
 
@@ -412,6 +487,22 @@ export function useWebRTCCall({
           sdp: offer.sdp || "",
         },
       });
+
+      // 35-second unanswered call timeout
+      callTimeoutRef.current = window.setTimeout(async () => {
+        if (callStateRef.current === "calling" || callStateRef.current === "ringing") {
+          callAudio.playDisconnect();
+          if (conversationId) {
+            await endCallSignal({ conversationId }).catch(() => {});
+          }
+          cleanupMediaAndPeer();
+          setCallState("timeout");
+          if (onError) onError(`No answer from ${peerName}. Call timed out.`);
+          setTimeout(() => {
+            setCallState("idle");
+          }, 2500);
+        }
+      }, 35000);
     } catch (signalingErr) {
       console.error("[WebRTC] Failed to publish call signaling offer:", signalingErr);
       cleanupMediaAndPeer();
@@ -425,7 +516,7 @@ export function useWebRTCCall({
           (signalingErr instanceof Error ? signalingErr.message : "Network error");
       if (onError) onError(errMsg);
     }
-  }, [conversationId, currentUserUid, cleanupMediaAndPeer, onError]);
+  }, [conversationId, currentUserUid, cleanupMediaAndPeer, onError, peerName]);
 
   /**
    * Accepts an incoming voice call.
@@ -435,6 +526,7 @@ export function useWebRTCCall({
 
     callAudio.stop();
     callRoleRef.current = "receiver";
+    setCallRole("receiver");
 
     // Step 1: Request Microphone Stream with Fallback
     let stream: MediaStream;
@@ -568,16 +660,102 @@ export function useWebRTCCall({
   }, [conversationId, cleanupMediaAndPeer]);
 
   /**
+   * Starts a local audio loopback echo test.
+   * Connects microphone -> 120ms delay node -> audio output + level analyzer.
+   * Allows users to test microphone hardware, permissions, and hear their own voice with realistic latency.
+   */
+  const startEchoTest = useCallback(async () => {
+    cleanupMediaAndPeer();
+    setCallRole("caller");
+    callRoleRef.current = "caller";
+    setIsEchoTest(true);
+    setCallState("connected");
+
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: true,
+        },
+      });
+    } catch {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err) {
+        console.error("[Echo Test] Mic failed:", err);
+        cleanupMediaAndPeer();
+        setCallState("idle");
+        const diag = await diagnoseMicrophoneError(err);
+        setMicBlocked(true);
+        setMicBlockedReason(diag.type);
+        return;
+      }
+    }
+
+    localStreamRef.current = stream;
+
+    try {
+      const AudioContextClass =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const audioCtx = new AudioContextClass();
+      echoCtxRef.current = audioCtx;
+
+      if (audioCtx.state === "suspended") {
+        await audioCtx.resume();
+      }
+
+      const source = audioCtx.createMediaStreamSource(stream);
+      const delay = audioCtx.createDelay(1.0);
+      delay.delayTime.value = 0.12; // 120ms realistic delay
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      const gainNode = audioCtx.createGain();
+      gainNode.gain.value = 0.85;
+
+      source.connect(analyser);
+      source.connect(delay);
+      delay.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      const checkLevel = () => {
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          sum += dataArray[i];
+        }
+        const avg = sum / bufferLength;
+        setMicLevel(Math.min(100, Math.round((avg / 128) * 100)));
+        echoAnimRef.current = requestAnimationFrame(checkLevel);
+      };
+      echoAnimRef.current = requestAnimationFrame(checkLevel);
+    } catch (err) {
+      console.error("[Echo Test] Web Audio routing failed:", err);
+    }
+  }, [cleanupMediaAndPeer]);
+
+  /**
    * Ends an active or outgoing call.
    */
   const endCall = useCallback(async () => {
     callAudio.stop();
+    if (isEchoTest) {
+      callAudio.playDisconnect();
+      cleanupMediaAndPeer();
+      setCallState("ended");
+      setTimeout(() => setCallState("idle"), 1200);
+      return;
+    }
     if (conversationId) {
       await endCallSignal({ conversationId });
     }
     cleanupMediaAndPeer();
     setCallState("idle");
-  }, [conversationId, cleanupMediaAndPeer]);
+  }, [isEchoTest, conversationId, cleanupMediaAndPeer]);
 
   /**
    * Toggles microphone mute state.
@@ -617,12 +795,16 @@ export function useWebRTCCall({
 
   return {
     callState,
+    callRole,
     isMuted,
     durationSec,
     activeSignal,
     micBlocked,
     micBlockedReason,
+    isEchoTest,
+    micLevel,
     startCall,
+    startEchoTest,
     acceptCall,
     declineCall,
     endCall,

@@ -26,6 +26,25 @@ export async function publishCallOffer({
 }
 
 /**
+ * Notifies the caller that the receiver's device is actively ringing.
+ */
+export async function notifyCallRinging({
+  conversationId,
+}: {
+  conversationId: string;
+}): Promise<void> {
+  const { database } = getFirebaseClient();
+  const callRef = ref(database, `calls/${conversationId}`);
+  try {
+    await update(callRef, {
+      state: "ringing",
+    });
+  } catch {
+    // Ignored
+  }
+}
+
+/**
  * Publishes an answer from the receiver to complete the WebRTC handshake.
  */
 export async function publishCallAnswer({

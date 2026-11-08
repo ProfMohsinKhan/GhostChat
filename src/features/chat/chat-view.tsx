@@ -28,6 +28,7 @@ type ChatViewProps = {
   onScreenshotAttempt?: (msg: string) => void;
   onBurnMessage?: (messageId: string) => void;
   onStartVoiceCall?: () => void;
+  onStartEchoTest?: () => void;
 };
 
 export function ChatView({
@@ -47,6 +48,7 @@ export function ChatView({
   onScreenshotAttempt,
   onBurnMessage,
   onStartVoiceCall,
+  onStartEchoTest,
 }: ChatViewProps) {
   const [inputText, setInputText] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
@@ -467,6 +469,18 @@ export function ChatView({
             <Icon name="clock" size={13} />
             <span>{activeTimer}</span>
           </button>
+          {onStartEchoTest && (
+            <button
+              type="button"
+              className="header-test-call-chip"
+              onClick={onStartEchoTest}
+              title="Run Sound & Echo Test (Loopback check to test mic & audio hardware)"
+              aria-label="Run Sound & Echo Test"
+            >
+              <Icon name="mic" size={13} />
+              <span>Test Call</span>
+            </button>
+          )}
           <button
             type="button"
             className="icon-button header-call-btn"

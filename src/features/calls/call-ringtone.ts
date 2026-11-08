@@ -120,6 +120,29 @@ class CallAudioSynthesizer {
     this.intervalId = window.setInterval(playDoubleChime, 2400);
   }
 
+  playDisconnect() {
+    this.stop();
+    const ctx = this.getContext();
+    if (!ctx) return;
+    try {
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(480, now);
+      osc.frequency.setValueAtTime(440, now + 0.15);
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.08, now + 0.04);
+      gain.gain.linearRampToValueAtTime(0.0001, now + 0.45);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.46);
+    } catch {
+      // Ignored
+    }
+  }
+
   stop() {
     this.isPlaying = false;
     if (this.intervalId !== null) {

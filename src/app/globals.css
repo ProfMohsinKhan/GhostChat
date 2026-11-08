@@ -5053,3 +5053,122 @@ html.force-screenshot-blackout::after {
   color: #f8fafc;
 }
 
+/* Echo Test & Audio Assurance Card */
+.echo-test-card {
+  width: min(420px, 94vw);
+  background: #091720;
+  border: 1px solid rgba(45, 212, 191, 0.3);
+  border-radius: 26px;
+  padding: 34px 24px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 40px rgba(45, 212, 191, 0.12);
+}
+
+.echo-avatar-icon {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(45, 212, 191, 0.2), rgba(20, 184, 166, 0.1));
+  border: 2px solid #2dd4bf;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2dd4bf;
+  margin-bottom: 18px;
+  box-shadow: 0 0 25px rgba(45, 212, 191, 0.3);
+}
+
+.echo-visualizer-container {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 18px 14px;
+  margin: 20px 0 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.echo-bars-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 5px;
+  height: 48px;
+  width: 100%;
+}
+
+.echo-eq-bar {
+  width: 8px;
+  border-radius: 4px;
+  background: rgba(45, 212, 191, 0.2);
+  transition: height 0.08s ease, background-color 0.1s ease;
+  min-height: 6px;
+}
+
+.echo-eq-bar.active {
+  background: linear-gradient(to top, #0d9488, #2dd4bf);
+  box-shadow: 0 0 8px rgba(45, 212, 191, 0.6);
+}
+
+.echo-level-badge {
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: rgba(45, 212, 191, 0.08);
+  color: #99f6e4;
+}
+
+.echo-assurance-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 4px 12px;
+  border-radius: 20px;
+  margin-bottom: 20px;
+}
+
+.echo-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.header-test-call-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: rgba(45, 212, 191, 0.1);
+  border: 1px solid rgba(45, 212, 191, 0.25);
+  color: #2dd4bf;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.header-test-call-chip:hover {
+  background: rgba(45, 212, 191, 0.2);
+  border-color: #2dd4bf;
+  transform: translateY(-1px);
+}
+
+

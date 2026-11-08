@@ -8,10 +8,13 @@ interface CallModalProps {
   peerName: string;
   peerInitials?: string;
   callState: CallState;
+  callRole?: "caller" | "receiver" | null;
   durationSec: number;
   isMuted: boolean;
   micBlocked?: boolean;
   micBlockedReason?: MicBlockedReason;
+  isEchoTest?: boolean;
+  micLevel?: number;
   onAccept: () => void;
   onDecline: () => void;
   onEnd: () => void;
@@ -30,10 +33,13 @@ export function CallModal({
   peerName,
   peerInitials,
   callState,
+  callRole = null,
   durationSec,
   isMuted,
   micBlocked = false,
   micBlockedReason = null,
+  isEchoTest = false,
+  micLevel = 0,
   onAccept,
   onDecline,
   onEnd,
@@ -184,8 +190,79 @@ export function CallModal({
 
   const initials = peerInitials || peerName.slice(0, 2).toUpperCase();
 
-  // Active connected call: Render sleek, non-blocking floating call bar so users can still read/send messages!
+  // Active connected call: Render full Echo Test Card if echo test, or floating bar for real calls
   if (callState === "connected") {
+    if (isEchoTest) {
+      const barHeights = [20, 35, 60, 80, 100, 75, 50, 90, 85, 65, 45, 95, 70, 55, 40, 25];
+      return (
+        <div className="call-overlay-backdrop" role="dialog" aria-modal="true" aria-label="Microphone and sound test">
+          <div className="call-overlay-card echo-test-card">
+            <div className="echo-avatar-icon">
+              <Icon name="mic" size={36} />
+            </div>
+
+            <h3 className="call-card-title">Sound &amp; Connection Test</h3>
+            <p className="call-card-subtitle">
+              Speak into your microphone. You will hear your voice looped back with ~120ms realistic P2P delay.
+            </p>
+
+            <div className="echo-visualizer-container">
+              <div className="echo-bars-row">
+                {barHeights.map((maxH, idx) => {
+                  const energy = Math.max(0.1, (micLevel ?? 0) / 100);
+                  const h = Math.max(10, Math.round(maxH * energy));
+                  const isActive = (micLevel ?? 0) > 8;
+                  return (
+                    <span
+                      key={idx}
+                      className={`echo-eq-bar ${isActive ? "active" : ""}`}
+                      style={{ height: `${h}%` }}
+                    />
+                  );
+                })}
+              </div>
+
+              <div className="echo-level-badge">
+                {(micLevel ?? 0) > 8 ? (
+                  <span>🟢 Mic Audio Captured ({micLevel}%)</span>
+                ) : (
+                  <span>🎙️ Listening... speak now to test</span>
+                )}
+              </div>
+            </div>
+
+            <div className="echo-assurance-badge">
+              <Icon name="check" size={13} />
+              <span>WebRTC Audio Engine: 100% Operational • {formatDuration(durationSec)}</span>
+            </div>
+
+            <div className="echo-actions">
+              <button
+                type="button"
+                className={`call-action-btn mute-btn ${isMuted ? "muted" : ""}`}
+                onClick={onToggleMute}
+                title={isMuted ? "Unmute microphone" : "Mute microphone"}
+              >
+                <Icon name={isMuted ? "micOff" : "mic"} size={16} />
+                <span>{isMuted ? "Muted" : "Mute"}</span>
+              </button>
+
+              <button
+                type="button"
+                className="primary-button mic-retry-btn"
+                style={{ background: "#ef4444", color: "#fff", padding: "0 22px" }}
+                onClick={onEnd}
+                title="End Sound Test"
+              >
+                <Icon name="phoneOff" size={16} />
+                <span>End Test</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="active-call-floating-bar" role="region" aria-label="Active voice call">
         <div className="call-bar-status-pulse">
@@ -229,8 +306,8 @@ export function CallModal({
     );
   }
 
-  // Incoming Call Overlay
-  if (callState === "ringing") {
+  // Incoming Call Overlay (Receiver)
+  if (callState === "ringing" && callRole === "receiver") {
     return (
       <div className="call-overlay-backdrop" role="dialog" aria-modal="true" aria-label="Incoming voice call">
         <div className="call-overlay-card incoming-card">
@@ -282,8 +359,11 @@ export function CallModal({
     );
   }
 
-  // Outgoing Calling Overlay
-  if (callState === "calling") {
+  // Outgoing Calling / Ringing Overlay (Caller)
+  if (
+    callState === "calling" ||
+    (callState === "ringing" && (callRole === "caller" || callRole === null))
+  ) {
     return (
       <div className="call-overlay-backdrop" role="dialog" aria-modal="true" aria-label="Outgoing voice call">
         <div className="call-overlay-card outgoing-card">
@@ -296,7 +376,9 @@ export function CallModal({
           </div>
 
           <h3 className="call-card-title">{peerName}</h3>
-          <p className="call-card-subtitle calling-text">Calling…</p>
+          <p className="call-card-subtitle calling-text">
+            {callState === "ringing" ? "Ringing (Peer alerted)…" : "Calling…"}
+          </p>
 
           <div className="call-card-security-badge">
             <Icon name="lock" size={12} />
@@ -322,15 +404,30 @@ export function CallModal({
     );
   }
 
-  // Declined or Ended Toast Pill
-  if (callState === "declined" || callState === "ended") {
+  // Declined, Ended, Busy or Timeout Toast Pill
+  if (
+    callState === "declined" ||
+    callState === "ended" ||
+    callState === "timeout" ||
+    callState === "busy"
+  ) {
     return (
       <div className="call-toast-banner" role="status">
         <Icon name="phoneOff" size={14} />
-        <span>{callState === "declined" ? "Call Declined" : "Call Ended"}</span>
+        <span>
+          {callState === "declined"
+            ? "Call Declined"
+            : callState === "timeout"
+            ? "Call Timed Out (No Answer)"
+            : callState === "busy"
+            ? "User Busy"
+            : "Call Ended"}
+        </span>
       </div>
     );
   }
+
+  return null;
 
   return null;
 }

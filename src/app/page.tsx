@@ -707,6 +707,9 @@ function AuthenticatedWorkspace({
   // WebRTC Ephemeral P2P Voice Calling (Phase 17)
   const call = useWebRTCCall({
     conversationId: isLivePairing && currentPairing ? currentPairing.id : null,
+    activePairingIds: isLiveSession
+      ? pairings.filter((p) => p.state === "active").map((p) => p.id)
+      : [],
     currentUserUid: uid,
     peerName: activeContact.name,
     enabled: isLivePairing && !isDestroyed,
@@ -717,6 +720,9 @@ function AuthenticatedWorkspace({
         tag: "ghostchat-voice-call",
         playTone: false,
       });
+    },
+    onAutoSwitchConversation: (pId) => {
+      setActiveContactId(pId);
     },
     onError: (msg) => notify(msg),
   });
@@ -1301,17 +1307,21 @@ function AuthenticatedWorkspace({
               ? call.startCall
               : () => notify("Pair with a contact to start encrypted voice calls.")
           }
+          onStartEchoTest={call.startEchoTest}
         />
 
         {/* WebRTC Ephemeral Voice Call Modal / Active Floating Bar */}
         <CallModal
-          peerName={activeContact.name}
-          peerInitials={activeContact.initials}
+          peerName={call.isEchoTest ? "Audio Loopback Test" : activeContact.name}
+          peerInitials={call.isEchoTest ? "TEST" : activeContact.initials}
           callState={call.callState}
+          callRole={call.callRole}
           durationSec={call.durationSec}
           isMuted={call.isMuted}
           micBlocked={call.micBlocked}
           micBlockedReason={call.micBlockedReason}
+          isEchoTest={call.isEchoTest}
+          micLevel={call.micLevel}
           onAccept={call.acceptCall}
           onDecline={call.declineCall}
           onEnd={call.endCall}

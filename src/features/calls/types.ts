@@ -4,7 +4,9 @@ export type CallState =
   | "ringing"
   | "connected"
   | "ended"
-  | "declined";
+  | "declined"
+  | "busy"
+  | "timeout";
 
 export type MicBlockedReason =
   | "browser_denied"

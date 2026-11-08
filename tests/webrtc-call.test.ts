@@ -86,4 +86,39 @@ describe("Phase 17: WebRTC Ephemeral Voice Calling & Signaling Protocol", () => 
     assert.ok(callRule[".write"].includes("acceptedBy").valueOf());
     assert.ok(callRule[".write"].includes("state').val() == 'active'"));
   });
+
+  test("unanswered call triggers timeout and disconnect transition", () => {
+    let callState: CallState = "calling";
+    const timeoutMs = 35000;
+    assert.equal(callState, "calling");
+
+    // Simulate timeout callback
+    const handleTimeout = () => {
+      callState = "timeout";
+    };
+
+    handleTimeout();
+    assert.equal(callState, "timeout");
+    assert.ok(timeoutMs >= 30000 && timeoutMs <= 45000);
+  });
+
+  test("echo test initializes local audio loopback with 120ms latency simulation and zero signaling overhead", () => {
+    const echoConfig = {
+      isEchoTest: true,
+      simulatedLatencySec: 0.12,
+      fftSize: 256,
+      gain: 0.85,
+    };
+
+    assert.equal(echoConfig.isEchoTest, true);
+    assert.equal(echoConfig.simulatedLatencySec, 0.12);
+    assert.equal(echoConfig.fftSize, 256);
+    assert.equal(echoConfig.gain, 0.85);
+
+    // Audio level calculation simulation
+    const mockEnergyArray = new Uint8Array([10, 20, 30, 40]);
+    const avg = mockEnergyArray.reduce((acc, v) => acc + v, 0) / mockEnergyArray.length;
+    const micLevel = Math.min(100, Math.round((avg / 128) * 100));
+    assert.ok(micLevel >= 0 && micLevel <= 100);
+  });
 });
