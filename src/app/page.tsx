@@ -718,6 +718,7 @@ function AuthenticatedWorkspace({
         playTone: false,
       });
     },
+    onError: (msg) => notify(msg),
   });
 
   const filteredContacts = useMemo(() => {

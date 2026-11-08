@@ -24,6 +24,7 @@ interface UseWebRTCCallProps {
   peerName?: string;
   enabled?: boolean;
   onIncomingCallBackground?: (callerName: string) => void;
+  onError?: (errorMessage: string) => void;
 }
 
 export function useWebRTCCall({
@@ -32,6 +33,7 @@ export function useWebRTCCall({
   peerName = "Peer",
   enabled = true,
   onIncomingCallBackground,
+  onError,
 }: UseWebRTCCallProps) {
   const [callState, setCallState] = useState<CallState>("idle");
   const [isMuted, setIsMuted] = useState<boolean>(false);
@@ -282,12 +284,18 @@ export function useWebRTCCall({
       console.error("[WebRTC] Failed to start call:", err);
       cleanupMediaAndPeer();
       setCallState("idle");
-      alert(
-        "Could not access microphone: " +
-          (err instanceof Error ? err.message : "Permission denied")
-      );
+      const errorMsg =
+        err instanceof Error && (err.name === "NotAllowedError" || err.message.includes("denied"))
+          ? "Microphone permission is blocked. Click the tune/lock icon in your browser URL bar and set Microphone to 'Allow'."
+          : "Could not access microphone: " +
+            (err instanceof Error ? err.message : "Permission denied");
+      if (onError) {
+        onError(errorMsg);
+      } else {
+        alert(errorMsg);
+      }
     }
-  }, [conversationId, currentUserUid, cleanupMediaAndPeer]);
+  }, [conversationId, currentUserUid, cleanupMediaAndPeer, onError]);
 
   /**
    * Accepts an incoming voice call.
@@ -375,8 +383,16 @@ export function useWebRTCCall({
       console.error("[WebRTC] Failed to accept call:", err);
       cleanupMediaAndPeer();
       setCallState("idle");
+      const errorMsg =
+        err instanceof Error && (err.name === "NotAllowedError" || err.message.includes("denied"))
+          ? "Microphone permission is blocked. Click the tune/lock icon in your browser URL bar and set Microphone to 'Allow'."
+          : "Could not access microphone: " +
+            (err instanceof Error ? err.message : "Permission denied");
+      if (onError) {
+        onError(errorMsg);
+      }
     }
-  }, [conversationId, activeSignal, cleanupMediaAndPeer]);
+  }, [conversationId, activeSignal, cleanupMediaAndPeer, onError]);
 
   /**
    * Declines an incoming call.
