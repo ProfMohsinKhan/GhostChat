@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { CallSignalData, CallState } from "./types";
+import type { CallSignalData, CallState, MicBlockedReason } from "./types";
 import {
   publishCallOffer,
   publishCallAnswer,
@@ -17,6 +17,69 @@ const RTC_CONFIG: RTCConfiguration = {
     { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
   ],
 };
+
+/**
+ * Diagnoses root causes of microphone access failures across Chrome, Windows privacy, and hardware.
+ */
+export async function diagnoseMicrophoneError(err: unknown): Promise<{
+  type: MicBlockedReason;
+  message: string;
+}> {
+  let browserState: PermissionState | "unknown" = "unknown";
+  try {
+    if (typeof navigator !== "undefined" && navigator.permissions?.query) {
+      const p = await navigator.permissions.query({ name: "microphone" as PermissionName });
+      browserState = p.state;
+    }
+  } catch {}
+
+  let hasAudioDevice = true;
+  try {
+    if (typeof navigator !== "undefined" && navigator.mediaDevices?.enumerateDevices) {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioInputs = devices.filter((d) => d.kind === "audioinput");
+      if (devices.length > 0 && audioInputs.length === 0) {
+        hasAudioDevice = false;
+      }
+    }
+  } catch {}
+
+  if (!hasAudioDevice) {
+    return {
+      type: "no_device",
+      message: "No microphone detected on your computer. Please plug in a headset or mic and refresh.",
+    };
+  }
+
+  if (err instanceof Error) {
+    if (err.name === "NotFoundError" || err.message.toLowerCase().includes("not found")) {
+      return {
+        type: "no_device",
+        message: "No microphone detected. Please plug in a microphone or headset and try again.",
+      };
+    }
+    if (err.name === "NotReadableError" || err.name === "TrackStartError") {
+      return {
+        type: "in_use",
+        message: "Microphone is in use by another app (Zoom, Teams, Discord). Please close it and retry.",
+      };
+    }
+  }
+
+  if (browserState === "granted") {
+    return {
+      type: "windows_privacy",
+      message:
+        "Microphone is Allowed in Chrome, but Windows is blocking Chrome or the tab needs a reload! Please press F5 to reload. If it persists, enable 'Let desktop apps access your microphone' in Windows Settings.",
+    };
+  }
+
+  return {
+    type: "browser_denied",
+    message:
+      "Microphone permission is blocked. Click the tune/lock icon in your browser URL bar, set Microphone to 'Allow', then reload the page.",
+  };
+}
 
 interface UseWebRTCCallProps {
   conversationId: string | null;
@@ -40,6 +103,7 @@ export function useWebRTCCall({
   const [durationSec, setDurationSec] = useState<number>(0);
   const [activeSignal, setActiveSignal] = useState<CallSignalData | null>(null);
   const [micBlocked, setMicBlocked] = useState<boolean>(false);
+  const [micBlockedReason, setMicBlockedReason] = useState<MicBlockedReason>(null);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -242,6 +306,7 @@ export function useWebRTCCall({
       }
       localStreamRef.current = stream;
       setMicBlocked(false);
+      setMicBlockedReason(null);
 
       const pc = new RTCPeerConnection(RTC_CONFIG);
       pcRef.current = pc;
@@ -291,18 +356,11 @@ export function useWebRTCCall({
       console.error("[WebRTC] Failed to start call:", err);
       cleanupMediaAndPeer();
       setCallState("idle");
-      const isDenied =
-        err instanceof Error &&
-        (err.name === "NotAllowedError" || err.message.toLowerCase().includes("denied"));
-      if (isDenied) {
-        setMicBlocked(true);
-      }
-      const errorMsg = isDenied
-        ? "Microphone permission is blocked. Click the tune/lock icon in your browser URL bar and set Microphone to 'Allow'."
-        : "Could not access microphone: " +
-          (err instanceof Error ? err.message : "Permission denied");
+      const diag = await diagnoseMicrophoneError(err);
+      setMicBlocked(true);
+      setMicBlockedReason(diag.type);
       if (onError) {
-        onError(errorMsg);
+        onError(diag.message);
       }
     }
   }, [conversationId, currentUserUid, cleanupMediaAndPeer, onError]);
@@ -333,6 +391,7 @@ export function useWebRTCCall({
       }
       localStreamRef.current = stream;
       setMicBlocked(false);
+      setMicBlockedReason(null);
 
       const pc = new RTCPeerConnection(RTC_CONFIG);
       pcRef.current = pc;
@@ -399,18 +458,11 @@ export function useWebRTCCall({
       console.error("[WebRTC] Failed to accept call:", err);
       cleanupMediaAndPeer();
       setCallState("idle");
-      const isDenied =
-        err instanceof Error &&
-        (err.name === "NotAllowedError" || err.message.toLowerCase().includes("denied"));
-      if (isDenied) {
-        setMicBlocked(true);
-      }
-      const errorMsg = isDenied
-        ? "Microphone permission is blocked. Click the tune/lock icon in your browser URL bar and set Microphone to 'Allow'."
-        : "Could not access microphone: " +
-          (err instanceof Error ? err.message : "Permission denied");
+      const diag = await diagnoseMicrophoneError(err);
+      setMicBlocked(true);
+      setMicBlockedReason(diag.type);
       if (onError) {
-        onError(errorMsg);
+        onError(diag.message);
       }
     }
   }, [conversationId, activeSignal, cleanupMediaAndPeer, onError]);
@@ -459,6 +511,7 @@ export function useWebRTCCall({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       for (const t of stream.getAudioTracks()) t.stop();
       setMicBlocked(false);
+      setMicBlockedReason(null);
       await startCall();
       return true;
     } catch {
@@ -471,6 +524,7 @@ export function useWebRTCCall({
 
   const dismissMicBlocked = useCallback(() => {
     setMicBlocked(false);
+    setMicBlockedReason(null);
   }, []);
 
   return {
@@ -479,6 +533,7 @@ export function useWebRTCCall({
     durationSec,
     activeSignal,
     micBlocked,
+    micBlockedReason,
     startCall,
     acceptCall,
     declineCall,

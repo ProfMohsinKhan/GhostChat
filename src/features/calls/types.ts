@@ -6,6 +6,13 @@ export type CallState =
   | "ended"
   | "declined";
 
+export type MicBlockedReason =
+  | "browser_denied"
+  | "windows_privacy"
+  | "no_device"
+  | "in_use"
+  | null;
+
 export interface IceCandidatePayload {
   candidate: string;
   sdpMid?: string | null;

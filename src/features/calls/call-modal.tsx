@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Icon } from "@/components/icons";
-import type { CallState } from "./types";
+import type { CallState, MicBlockedReason } from "./types";
 
 interface CallModalProps {
   peerName: string;
@@ -11,6 +11,7 @@ interface CallModalProps {
   durationSec: number;
   isMuted: boolean;
   micBlocked?: boolean;
+  micBlockedReason?: MicBlockedReason;
   onAccept: () => void;
   onDecline: () => void;
   onEnd: () => void;
@@ -32,6 +33,7 @@ export function CallModal({
   durationSec,
   isMuted,
   micBlocked = false,
+  micBlockedReason = null,
   onAccept,
   onDecline,
   onEnd,
@@ -40,6 +42,10 @@ export function CallModal({
   onDismissMic,
 }: CallModalProps) {
   if (micBlocked) {
+    const isWindowsPrivacy = micBlockedReason === "windows_privacy";
+    const isNoDevice = micBlockedReason === "no_device";
+    const isInUse = micBlockedReason === "in_use";
+
     return (
       <div className="call-overlay-backdrop" role="dialog" aria-modal="true" aria-label="Microphone permission blocked">
         <div className="call-overlay-card mic-guide-card">
@@ -47,41 +53,120 @@ export function CallModal({
             <Icon name="micOff" size={32} />
           </div>
 
-          <h3 className="call-card-title">Microphone Access Blocked</h3>
+          <h3 className="call-card-title">
+            {isWindowsPrivacy
+              ? "Microphone Blocked by Windows or Needs Reload"
+              : isNoDevice
+              ? "No Microphone Detected"
+              : isInUse
+              ? "Microphone In Use by Another App"
+              : "Microphone Access Blocked"}
+          </h3>
+
           <p className="call-card-subtitle">
-            Chrome has blocked microphone access for this website. Follow these 2 quick steps:
+            {isWindowsPrivacy
+              ? "Chrome shows Microphone is Allowed (ON), but could not access audio hardware. Follow these steps:"
+              : isNoDevice
+              ? "GhostChat could not detect any audio input device connected to your PC."
+              : isInUse
+              ? "Another application is exclusively locking your microphone audio stream."
+              : "Chrome has blocked microphone access for this website. Follow these quick steps:"}
           </p>
 
           <div className="mic-steps-box">
-            <div className="mic-step">
-              <span className="step-num">1</span>
-              <span>Look at the address bar at the top, click the <strong>Tune / Settings icon (🎛️ or 🔒)</strong> on the left side of <code>ghost-chatly.vercel.app</code></span>
-            </div>
-            <div className="mic-step">
-              <span className="step-num">2</span>
-              <span>Turn <strong>Microphone</strong> toggle to <strong>Allow (ON)</strong></span>
-            </div>
-            <div className="mic-step">
-              <span className="step-num">3</span>
-              <span>Click <strong>Reload &amp; Retry Call</strong> below</span>
-            </div>
+            {isWindowsPrivacy ? (
+              <>
+                <div className="mic-step">
+                  <span className="step-num">1</span>
+                  <span>
+                    <strong>Reload this tab first:</strong> Chrome requires a tab refresh after toggling permissions in the address bar. Click <strong>Reload Tab Now</strong> below.
+                  </span>
+                </div>
+                <div className="mic-step">
+                  <span className="step-num">2</span>
+                  <span>
+                    <strong>Check Windows Privacy Settings:</strong> Press <kbd>Win</kbd> + <kbd>I</kbd> &rarr; <strong>Privacy &amp; security</strong> &rarr; <strong>Microphone</strong>. Ensure <strong>&quot;Let desktop apps access your microphone&quot;</strong> is switched <strong>ON</strong> and Google Chrome is permitted.
+                  </span>
+                </div>
+                <div className="mic-step">
+                  <span className="step-num">3</span>
+                  <span>
+                    <strong>Check Physical Hardware:</strong> Ensure your headset or microphone cable is firmly plugged in and not muted via hardware switch.
+                  </span>
+                </div>
+              </>
+            ) : isNoDevice ? (
+              <>
+                <div className="mic-step">
+                  <span className="step-num">1</span>
+                  <span>Plug in a microphone, headset, or earphones into your computer&apos;s audio jack or USB port.</span>
+                </div>
+                <div className="mic-step">
+                  <span className="step-num">2</span>
+                  <span>Open Windows Sound settings (Settings &rarr; System &rarr; Sound) and verify that an Input Device is enabled.</span>
+                </div>
+                <div className="mic-step">
+                  <span className="step-num">3</span>
+                  <span>Click <strong>Reload Tab Now</strong> below.</span>
+                </div>
+              </>
+            ) : isInUse ? (
+              <>
+                <div className="mic-step">
+                  <span className="step-num">1</span>
+                  <span>Close other applications currently using your microphone (Zoom, Microsoft Teams, Discord, Skype, or Windows Voice Recorder).</span>
+                </div>
+                <div className="mic-step">
+                  <span className="step-num">2</span>
+                  <span>Click <strong>Retry Call</strong> below.</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mic-step">
+                  <span className="step-num">1</span>
+                  <span>
+                    Look at the address bar at the top, click the <strong>Tune / Settings icon (🎛️ or 🔒)</strong> on the left side of <code>ghost-chatly.vercel.app</code>
+                  </span>
+                </div>
+                <div className="mic-step">
+                  <span className="step-num">2</span>
+                  <span>Turn <strong>Microphone</strong> toggle to <strong>Allow (ON)</strong></span>
+                </div>
+                <div className="mic-step">
+                  <span className="step-num">3</span>
+                  <span>Click <strong>Reload Tab &amp; Retry</strong> below</span>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="mic-guide-actions">
             <button
               type="button"
               className="primary-button mic-retry-btn"
-              onClick={onRetryMic}
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.location.reload();
+                }
+              }}
             >
               <Icon name="refresh" size={16} />
-              <span>Reload &amp; Retry Call</span>
+              <span>Reload Tab Now</span>
+            </button>
+            <button
+              type="button"
+              className="mic-retry-btn mic-secondary-action-btn"
+              onClick={onRetryMic}
+            >
+              <span>Retry Call</span>
             </button>
             <button
               type="button"
               className="mic-cancel-btn"
               onClick={onDismissMic}
             >
-              Cancel
+              Dismiss
             </button>
           </div>
         </div>

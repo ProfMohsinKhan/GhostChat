@@ -4951,6 +4951,28 @@ html.force-screenshot-blackout::after {
   font-family: monospace;
 }
 
+.mic-step kbd {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.28);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 11px;
+  color: #e2e8f0;
+  font-family: inherit;
+}
+
+.mic-secondary-action-btn {
+  background: rgba(45, 212, 191, 0.14);
+  color: #2dd4bf;
+  border: 1px solid rgba(45, 212, 191, 0.35);
+}
+
+.mic-secondary-action-btn:hover {
+  background: rgba(45, 212, 191, 0.24);
+  color: #5eead4;
+}
+
 .step-num {
   width: 22px;
   height: 22px;
