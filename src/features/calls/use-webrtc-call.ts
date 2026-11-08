@@ -284,30 +284,44 @@ export function useWebRTCCall({
   const startCall = useCallback(async () => {
     if (!conversationId || !currentUserUid) return;
 
+    cleanupMediaAndPeer();
+    callRoleRef.current = "caller";
+    setCallState("calling");
+    callAudio.startOutgoingRing();
+
+    // Step 1: Request Microphone Stream with Graceful Fallback
+    let stream: MediaStream;
     try {
-      cleanupMediaAndPeer();
-      callRoleRef.current = "caller";
-      setCallState("calling");
-      callAudio.startOutgoingRing();
-
-      // Request microphone stream with fallback
-      let stream: MediaStream;
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+    } catch (firstErr) {
+      console.warn("[WebRTC] Advanced audio constraints failed, trying basic audio: true", firstErr);
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-          video: false,
-        });
-      } catch {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (micErr) {
+        console.error("[WebRTC] Microphone access failed completely:", micErr);
+        cleanupMediaAndPeer();
+        setCallState("idle");
+        const diag = await diagnoseMicrophoneError(micErr);
+        setMicBlocked(true);
+        setMicBlockedReason(diag.type);
+        const rawErr = micErr instanceof Error ? ` (${micErr.name}: ${micErr.message})` : "";
+        if (onError) onError(diag.message + rawErr);
+        return;
       }
-      localStreamRef.current = stream;
-      setMicBlocked(false);
-      setMicBlockedReason(null);
+    }
 
+    localStreamRef.current = stream;
+    setMicBlocked(false);
+    setMicBlockedReason(null);
+
+    // Step 2: Establish WebRTC Peer Connection and Publish Offer to Firebase
+    try {
       const pc = new RTCPeerConnection(RTC_CONFIG);
       pcRef.current = pc;
 
@@ -352,16 +366,18 @@ export function useWebRTCCall({
           sdp: offer.sdp || "",
         },
       });
-    } catch (err) {
-      console.error("[WebRTC] Failed to start call:", err);
+    } catch (signalingErr) {
+      console.error("[WebRTC] Failed to publish call signaling offer:", signalingErr);
       cleanupMediaAndPeer();
       setCallState("idle");
-      const diag = await diagnoseMicrophoneError(err);
-      setMicBlocked(true);
-      setMicBlockedReason(diag.type);
-      if (onError) {
-        onError(diag.message);
-      }
+      const isPermissionDenied =
+        signalingErr instanceof Error &&
+        signalingErr.message.toLowerCase().includes("permission_denied");
+      const errMsg = isPermissionDenied
+        ? "Firebase Database permission denied for calls node. Update calls rule in Firebase console."
+        : "Failed to establish call connection: " +
+          (signalingErr instanceof Error ? signalingErr.message : "Network error");
+      if (onError) onError(errMsg);
     }
   }, [conversationId, currentUserUid, cleanupMediaAndPeer, onError]);
 
@@ -371,28 +387,42 @@ export function useWebRTCCall({
   const acceptCall = useCallback(async () => {
     if (!conversationId || !activeSignal || !activeSignal.offer) return;
 
+    callAudio.stop();
+    callRoleRef.current = "receiver";
+
+    // Step 1: Request Microphone Stream with Fallback
+    let stream: MediaStream;
     try {
-      callAudio.stop();
-      callRoleRef.current = "receiver";
-
-      // Request microphone stream with fallback
-      let stream: MediaStream;
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+    } catch (firstErr) {
+      console.warn("[WebRTC] Advanced audio constraints failed, trying basic audio: true", firstErr);
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-          video: false,
-        });
-      } catch {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (micErr) {
+        console.error("[WebRTC] Microphone access failed completely:", micErr);
+        cleanupMediaAndPeer();
+        setCallState("idle");
+        const diag = await diagnoseMicrophoneError(micErr);
+        setMicBlocked(true);
+        setMicBlockedReason(diag.type);
+        const rawErr = micErr instanceof Error ? ` (${micErr.name}: ${micErr.message})` : "";
+        if (onError) onError(diag.message + rawErr);
+        return;
       }
-      localStreamRef.current = stream;
-      setMicBlocked(false);
-      setMicBlockedReason(null);
+    }
 
+    localStreamRef.current = stream;
+    setMicBlocked(false);
+    setMicBlockedReason(null);
+
+    // Step 2: Establish WebRTC Peer Connection and Publish Answer to Firebase
+    try {
       const pc = new RTCPeerConnection(RTC_CONFIG);
       pcRef.current = pc;
 
@@ -454,16 +484,18 @@ export function useWebRTCCall({
       }
 
       setCallState("connected");
-    } catch (err) {
-      console.error("[WebRTC] Failed to accept call:", err);
+    } catch (signalingErr) {
+      console.error("[WebRTC] Failed to accept call signaling answer:", signalingErr);
       cleanupMediaAndPeer();
       setCallState("idle");
-      const diag = await diagnoseMicrophoneError(err);
-      setMicBlocked(true);
-      setMicBlockedReason(diag.type);
-      if (onError) {
-        onError(diag.message);
-      }
+      const isPermissionDenied =
+        signalingErr instanceof Error &&
+        signalingErr.message.toLowerCase().includes("permission_denied");
+      const errMsg = isPermissionDenied
+        ? "Firebase Database permission denied for calls node. Update calls rule in Firebase console."
+        : "Failed to establish call connection: " +
+          (signalingErr instanceof Error ? signalingErr.message : "Network error");
+      if (onError) onError(errMsg);
     }
   }, [conversationId, activeSignal, cleanupMediaAndPeer, onError]);
 
