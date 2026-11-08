@@ -136,6 +136,7 @@ test("Phase 12: Security Hardening, CSP, Frame Protection & Rules Verification",
         "messages",
         "presence",
         "typing",
+        "calls",
       ];
       assert.deepEqual(rootKeys.sort(), expectedKeys.sort());
     }

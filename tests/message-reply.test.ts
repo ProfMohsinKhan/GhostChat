@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import type { QuotedMessage, SampleMessage } from "../src/features/chat/types.js";
+import type { QuotedMessage } from "../src/features/chat/types.js";
 
 describe("Phase 14: WhatsApp-Style Quoted Message Reply Protocol", () => {
   function serializeMessagePayload(

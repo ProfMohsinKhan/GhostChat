@@ -27,6 +27,7 @@ type ChatViewProps = {
   antiScreenshotEnabled?: boolean;
   onScreenshotAttempt?: (msg: string) => void;
   onBurnMessage?: (messageId: string) => void;
+  onStartVoiceCall?: () => void;
 };
 
 export function ChatView({
@@ -45,6 +46,7 @@ export function ChatView({
   antiScreenshotEnabled = true,
   onScreenshotAttempt,
   onBurnMessage,
+  onStartVoiceCall,
 }: ChatViewProps) {
   const [inputText, setInputText] = useState("");
   const [isEditingName, setIsEditingName] = useState(false);
@@ -464,6 +466,16 @@ export function ChatView({
           >
             <Icon name="clock" size={13} />
             <span>{activeTimer}</span>
+          </button>
+          <button
+            type="button"
+            className="icon-button header-call-btn"
+            onClick={onStartVoiceCall}
+            title="Start Encrypted Voice Call"
+            aria-label="Start Voice Call"
+            disabled={isDestroyed}
+          >
+            <Icon name="phone" size={17} />
           </button>
           <button
             type="button"

@@ -55,7 +55,7 @@ describe("Phase 15: View Once Ephemeral Image Protocol", () => {
   });
 
   test("respects View Once burn condition (single open invalidation)", () => {
-    let volatileCache = new Map<string, string>();
+    const volatileCache = new Map<string, string>();
     const messageId = "msg_view_once_99";
     const cacheKey = `conv_1:1:${messageId}`;
 
@@ -95,7 +95,13 @@ describe("Phase 15: View Once Ephemeral Image Protocol", () => {
 
   test("repeat view prevention: once viewed, message memory is wiped and second view is rejected", () => {
     const openedViewOnceIds = new Set<string>();
-    const message = {
+    const message: {
+      id: string;
+      text: string;
+      imageData?: string;
+      viewOnce: boolean;
+      isOpened: boolean;
+    } = {
       id: "msg_burn_42",
       text: "Confidential screenshot",
       imageData: "data:image/jpeg;base64,secretphoto123",

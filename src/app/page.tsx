@@ -48,6 +48,9 @@ import {
   deleteStoredVerification,
   checkKeyChangeStatus,
 } from "@/features/verification/verification-storage";
+import { useSmartNotifications } from "@/features/notifications/use-smart-notifications";
+import { useWebRTCCall } from "@/features/calls/use-webrtc-call";
+import { CallModal } from "@/features/calls/call-modal";
 import { usePwa } from "@/features/pwa/use-pwa";
 import { ShortcutsModal } from "@/features/pwa/shortcuts-modal";
 import { Icon } from "@/components/icons";
@@ -670,6 +673,53 @@ function AuthenticatedWorkspace({
     activeContact.name,
   ]);
 
+  // Smart Visibility-Aware Notifications Engine (Phase 16)
+  const notifications = useSmartNotifications();
+  const lastMsgCountRef = useRef<number>(0);
+
+  // Monitor incoming messages for background / screen-off / unseen notification triggers
+  useEffect(() => {
+    if (!isLivePairing) return;
+    if (live.messages.length > lastMsgCountRef.current) {
+      const newIncoming = live.messages
+        .slice(lastMsgCountRef.current)
+        .filter((m) => m.sender === "them");
+
+      if (newIncoming.length > 0) {
+        // notifyIfBackground strictly suppresses if user is actively looking at the chat
+        notifications.notifyIfBackground({
+          title: "GhostChat",
+          body: `New confidential message from ${activeContact.name}`,
+          tag: `msg-${activeContact.id}`,
+        });
+      }
+    }
+    lastMsgCountRef.current = live.messages.length;
+  }, [live.messages, isLivePairing, activeContact.name, activeContact.id, notifications]);
+
+  // Request notification permission once in active conversation if default
+  useEffect(() => {
+    if (isLivePairing && notifications.permission === "default") {
+      notifications.requestPermission().catch(() => {});
+    }
+  }, [isLivePairing, notifications]);
+
+  // WebRTC Ephemeral P2P Voice Calling (Phase 17)
+  const call = useWebRTCCall({
+    conversationId: isLivePairing && currentPairing ? currentPairing.id : null,
+    currentUserUid: uid,
+    peerName: activeContact.name,
+    enabled: isLivePairing && !isDestroyed,
+    onIncomingCallBackground: (callerName) => {
+      notifications.notifyIfBackground({
+        title: "Incoming Voice Call",
+        body: `${callerName} is calling you on GhostChat`,
+        tag: "ghostchat-voice-call",
+        playTone: false,
+      });
+    },
+  });
+
   const filteredContacts = useMemo(() => {
     const list = allContacts.filter((c) => {
       const matchesTab = c.tab === activeTab;
@@ -1245,6 +1295,24 @@ function AuthenticatedWorkspace({
           antiScreenshotEnabled={antiScreenshotEnabled}
           onScreenshotAttempt={(msg) => notify(msg)}
           onBurnMessage={(msgId) => live.burnMessage(msgId)}
+          onStartVoiceCall={
+            isLivePairing
+              ? call.startCall
+              : () => notify("Pair with a contact to start encrypted voice calls.")
+          }
+        />
+
+        {/* WebRTC Ephemeral Voice Call Modal / Active Floating Bar */}
+        <CallModal
+          peerName={activeContact.name}
+          peerInitials={activeContact.initials}
+          callState={call.callState}
+          durationSec={call.durationSec}
+          isMuted={call.isMuted}
+          onAccept={call.acceptCall}
+          onDecline={call.declineCall}
+          onEnd={call.endCall}
+          onToggleMute={call.toggleMute}
         />
       </div>
 

@@ -2635,7 +2635,7 @@ button:disabled {
     font-size: 13px;
   }
   .header-actions .header-call-btn {
-    display: none;
+    display: inline-flex;
   }
   .message-area {
     padding: 14px 12px;
@@ -4500,6 +4500,391 @@ html.force-screenshot-blackout::after {
 .ring-burned-icon {
   color: #ef4444;
 }
+
+/* ==========================================================================
+   WebRTC P2P Voice Calling & In-Call Floating UI (Phase 17)
+   ========================================================================== */
+
+.header-call-btn {
+  color: #2dd4bf !important;
+  background: rgba(45, 212, 191, 0.08) !important;
+  border: 1px solid rgba(45, 212, 191, 0.22) !important;
+  transition: all 0.15s ease;
+}
+
+.header-call-btn:hover {
+  background: rgba(45, 212, 191, 0.2) !important;
+  color: #5eead4 !important;
+  transform: translateY(-1px);
+}
+
+/* Active Floating Call Bar */
+.active-call-floating-bar {
+  position: absolute;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: min(540px, 94%);
+  padding: 8px 16px;
+  background: rgba(9, 21, 28, 0.94);
+  backdrop-filter: blur(16px);
+  border: 1.5px solid rgba(45, 212, 191, 0.35);
+  border-radius: 30px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(45, 212, 191, 0.15);
+  animation: slideDownFade 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideDownFade {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.call-bar-status-pulse {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.live-pulse-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 10px #10b981;
+  animation: callDotPulse 1.4s infinite ease-in-out;
+}
+
+@keyframes callDotPulse {
+  0%, 100% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
+}
+
+.call-duration-text {
+  font-family: var(--font-mono, monospace);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #10b981;
+  letter-spacing: 0.5px;
+}
+
+.call-bar-peer-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.call-active-icon {
+  color: #2dd4bf;
+}
+
+.call-peer-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #f1f5f9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.call-encryption-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 12px;
+  background: rgba(45, 212, 191, 0.12);
+  color: #5eead4;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.call-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.call-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+}
+
+.mute-btn {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+}
+
+.mute-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.mute-btn.muted {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.end-btn {
+  background: #ef4444;
+  color: #fff;
+}
+
+.end-btn:hover {
+  background: #dc2626;
+}
+
+/* Call Overlay Backdrop & Fullscreen Dialog */
+.call-overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10005;
+  background: rgba(2, 7, 10, 0.88);
+  backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.18s ease-out;
+}
+
+.call-overlay-card {
+  width: min(390px, 94vw);
+  background: #091720;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 26px;
+  padding: 38px 24px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+}
+
+.call-avatar-wrapper {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 22px;
+}
+
+.call-ripple-ring {
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(45, 212, 191, 0.4);
+  animation: callRipple 2s infinite ease-out;
+}
+
+.call-ripple-ring.ring-2 {
+  inset: -24px;
+  animation-delay: 0.6s;
+}
+
+@keyframes callRipple {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+.call-avatar-circle {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0d3835, #115e59);
+  border: 2px solid #2dd4bf;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(45, 212, 191, 0.25);
+}
+
+.call-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.call-avatar-initial {
+  font-size: 34px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.call-card-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.call-card-subtitle {
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  color: #94a3b8;
+}
+
+.calling-text {
+  color: #2dd4bf;
+  font-weight: 600;
+  animation: callPulseText 1.6s infinite ease-in-out;
+}
+
+@keyframes callPulseText {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.call-card-security-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.incoming-call-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 36px;
+  margin-top: 34px;
+  width: 100%;
+}
+
+.incoming-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.btn-circle-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.decline-call-btn .btn-circle-icon {
+  background: #ef4444;
+  color: #fff;
+}
+
+.decline-call-btn:hover .btn-circle-icon {
+  background: #dc2626;
+  transform: scale(1.05);
+}
+
+.accept-call-btn .btn-circle-icon {
+  background: #10b981;
+  color: #fff;
+  box-shadow: 0 0 24px rgba(16, 185, 129, 0.4);
+}
+
+.accept-call-btn:hover .btn-circle-icon {
+  background: #059669;
+  transform: scale(1.08);
+}
+
+.outgoing-call-actions {
+  margin-top: 32px;
+}
+
+.outgoing-end-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.outgoing-end-btn .btn-circle-icon {
+  background: #ef4444;
+  color: #fff;
+}
+
+.outgoing-end-btn:hover .btn-circle-icon {
+  background: #dc2626;
+  transform: scale(1.05);
+}
+
+/* Call Toast Banner */
+.call-toast-banner {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10006;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  background: rgba(15, 23, 29, 0.95);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #f87171;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  animation: fadeIn 0.15s ease-out;
+}
+
 
 
 

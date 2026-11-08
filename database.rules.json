@@ -70,6 +70,12 @@
           ".validate": "newData.isBoolean() || (newData.hasChildren(['isTyping']) && newData.child('isTyping').isBoolean())"
         }
       }
+    },
+    "calls": {
+      "$conversationId": {
+        ".read": "auth != null && root.child('conversations').child($conversationId).exists() && (root.child('conversations').child($conversationId).child('ownerUid').val() == auth.uid || root.child('conversations').child($conversationId).child('acceptedBy').val() == auth.uid) && root.child('conversations').child($conversationId).child('state').val() == 'active'",
+        ".write": "auth != null && root.child('conversations').child($conversationId).exists() && (root.child('conversations').child($conversationId).child('ownerUid').val() == auth.uid || root.child('conversations').child($conversationId).child('acceptedBy').val() == auth.uid) && root.child('conversations').child($conversationId).child('state').val() == 'active'"
+      }
     }
   }
 }

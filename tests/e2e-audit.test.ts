@@ -303,6 +303,7 @@ describe("Phase 13: End-to-End System Audit & Zero-Cost Architecture Verificatio
       "messages",
       "presence",
       "typing",
+      "calls",
     ];
     assert.deepEqual(rootKeys.sort(), expectedKeys.sort(), "Root keys must strictly match authorized paths");
 
