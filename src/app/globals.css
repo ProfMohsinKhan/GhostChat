@@ -4962,6 +4962,23 @@ html.force-screenshot-blackout::after {
   font-family: inherit;
 }
 
+.mic-guide-tip {
+  font-size: 12px;
+  color: #94a3b8;
+  background: rgba(45, 212, 191, 0.08);
+  border: 1px solid rgba(45, 212, 191, 0.2);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+  line-height: 1.4;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.mic-guide-tip strong {
+  color: #2dd4bf;
+}
+
 .mic-secondary-action-btn {
   background: rgba(45, 212, 191, 0.14);
   color: #2dd4bf;

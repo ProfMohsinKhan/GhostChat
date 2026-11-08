@@ -131,14 +131,20 @@ export function CallModal({
                 </div>
                 <div className="mic-step">
                   <span className="step-num">2</span>
-                  <span>Turn <strong>Microphone</strong> toggle to <strong>Allow (ON)</strong></span>
+                  <span>Ensure <strong>Microphone</strong> is set to <strong>Allow (ON)</strong></span>
                 </div>
                 <div className="mic-step">
                   <span className="step-num">3</span>
-                  <span>Click <strong>Reload Tab &amp; Retry</strong> below</span>
+                  <span>
+                    Click <strong>Reload Tab Now</strong> below (Chrome requires a page reload to apply the permission change)
+                  </span>
                 </div>
               </>
             )}
+          </div>
+
+          <div className="mic-guide-tip">
+            💡 <strong>Already ON in tune menu?</strong> Simply click <strong>Reload Tab Now</strong> below to activate it in Chrome.
           </div>
 
           <div className="mic-guide-actions">
