@@ -14,8 +14,17 @@ import { callAudio } from "./call-ringtone";
 
 const RTC_CONFIG: RTCConfiguration = {
   iceServers: [
-    { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] },
+    {
+      urls: [
+        "stun:stun.l.google.com:19302",
+        "stun:stun1.l.google.com:19302",
+        "stun:stun2.l.google.com:19302",
+        "stun:stun3.l.google.com:19302",
+        "stun:stun4.l.google.com:19302",
+      ],
+    },
   ],
+  iceCandidatePoolSize: 10,
 };
 
 /**
@@ -111,6 +120,13 @@ export function useWebRTCCall({
   const durationTimerRef = useRef<number | null>(null);
   const callRoleRef = useRef<"caller" | "receiver" | null>(null);
   const candidatesQueueRef = useRef<RTCIceCandidateInit[]>([]);
+  const callStateRef = useRef<CallState>("idle");
+  const addedCandidatesRef = useRef<Set<string>>(new Set());
+
+  // Keep callStateRef synchronized with callState
+  useEffect(() => {
+    callStateRef.current = callState;
+  }, [callState]);
 
   // Initialize hidden remote audio element
   useEffect(() => {
@@ -154,11 +170,14 @@ export function useWebRTCCall({
     if (pcRef.current) {
       pcRef.current.onicecandidate = null;
       pcRef.current.ontrack = null;
+      pcRef.current.onconnectionstatechange = null;
+      pcRef.current.oniceconnectionstatechange = null;
       pcRef.current.close();
       pcRef.current = null;
     }
 
     candidatesQueueRef.current = [];
+    addedCandidatesRef.current.clear();
     callRoleRef.current = null;
     setIsMuted(false);
   }, []);
@@ -174,7 +193,7 @@ export function useWebRTCCall({
 
         // Case 1: No call node exists (Call ended or idle)
         if (!signal) {
-          if (callState !== "idle") {
+          if (callStateRef.current !== "idle") {
             cleanupMediaAndPeer();
             setCallState("idle");
           }
@@ -183,7 +202,7 @@ export function useWebRTCCall({
 
         // Case 2: Incoming call for receiver
         if (signal.state === "calling" && signal.callerUid !== currentUserUid) {
-          if (callState === "idle") {
+          if (callStateRef.current === "idle") {
             callRoleRef.current = "receiver";
             setCallState("ringing");
             callAudio.startIncomingRing();
@@ -204,16 +223,30 @@ export function useWebRTCCall({
             await pcRef.current.setRemoteDescription(
               new RTCSessionDescription(signal.answer)
             );
-            // Process queued receiver candidates
-            if (signal.receiverCandidates) {
-              for (const c of Object.values(signal.receiverCandidates)) {
-                await pcRef.current.addIceCandidate(new RTCIceCandidate(c));
-              }
-            }
           } catch (err) {
             console.warn("[WebRTC] Error setting remote answer:", err);
           }
           setCallState("connected");
+        }
+
+        // Process receiver candidates for caller
+        if (
+          callRoleRef.current === "caller" &&
+          pcRef.current &&
+          pcRef.current.remoteDescription &&
+          signal.receiverCandidates
+        ) {
+          for (const c of Object.values(signal.receiverCandidates)) {
+            const key = `${c.candidate}_${c.sdpMid}_${c.sdpMLineIndex}`;
+            if (!addedCandidatesRef.current.has(key)) {
+              addedCandidatesRef.current.add(key);
+              try {
+                await pcRef.current.addIceCandidate(new RTCIceCandidate(c));
+              } catch {
+                // Duplicate or stale candidate
+              }
+            }
+          }
         }
 
         // Process caller candidates if receiver
@@ -224,10 +257,14 @@ export function useWebRTCCall({
           signal.callerCandidates
         ) {
           for (const c of Object.values(signal.callerCandidates)) {
-            try {
-              await pcRef.current.addIceCandidate(new RTCIceCandidate(c));
-            } catch {
-              // Duplicate or stale candidate
+            const key = `${c.candidate}_${c.sdpMid}_${c.sdpMLineIndex}`;
+            if (!addedCandidatesRef.current.has(key)) {
+              addedCandidatesRef.current.add(key);
+              try {
+                await pcRef.current.addIceCandidate(new RTCIceCandidate(c));
+              } catch {
+                // Duplicate or stale candidate
+              }
             }
           }
         }
@@ -251,7 +288,6 @@ export function useWebRTCCall({
     enabled,
     conversationId,
     currentUserUid,
-    callState,
     peerName,
     onIncomingCallBackground,
     cleanupMediaAndPeer,
@@ -353,6 +389,16 @@ export function useWebRTCCall({
         }
       };
 
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === "connected") {
+          callAudio.stop();
+          setCallState("connected");
+        } else if (pc.connectionState === "failed" || pc.connectionState === "closed") {
+          cleanupMediaAndPeer();
+          setCallState("idle");
+        }
+      };
+
       // Create Offer
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -451,6 +497,16 @@ export function useWebRTCCall({
               sdpMLineIndex: event.candidate.sdpMLineIndex,
             },
           }).catch(() => {});
+        }
+      };
+
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === "connected") {
+          callAudio.stop();
+          setCallState("connected");
+        } else if (pc.connectionState === "failed" || pc.connectionState === "closed") {
+          cleanupMediaAndPeer();
+          setCallState("idle");
         }
       };
 
