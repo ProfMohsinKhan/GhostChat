@@ -1310,10 +1310,13 @@ function AuthenticatedWorkspace({
           callState={call.callState}
           durationSec={call.durationSec}
           isMuted={call.isMuted}
+          micBlocked={call.micBlocked}
           onAccept={call.acceptCall}
           onDecline={call.declineCall}
           onEnd={call.endCall}
           onToggleMute={call.toggleMute}
+          onRetryMic={call.retryMicrophone}
+          onDismissMic={call.dismissMicBlocked}
         />
       </div>
 

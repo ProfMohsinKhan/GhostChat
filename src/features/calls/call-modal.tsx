@@ -10,10 +10,13 @@ interface CallModalProps {
   callState: CallState;
   durationSec: number;
   isMuted: boolean;
+  micBlocked?: boolean;
   onAccept: () => void;
   onDecline: () => void;
   onEnd: () => void;
   onToggleMute: () => void;
+  onRetryMic?: () => void;
+  onDismissMic?: () => void;
 }
 
 function formatDuration(sec: number): string {
@@ -28,11 +31,64 @@ export function CallModal({
   callState,
   durationSec,
   isMuted,
+  micBlocked = false,
   onAccept,
   onDecline,
   onEnd,
   onToggleMute,
+  onRetryMic,
+  onDismissMic,
 }: CallModalProps) {
+  if (micBlocked) {
+    return (
+      <div className="call-overlay-backdrop" role="dialog" aria-modal="true" aria-label="Microphone permission blocked">
+        <div className="call-overlay-card mic-guide-card">
+          <div className="mic-guide-icon-wrap">
+            <Icon name="micOff" size={32} />
+          </div>
+
+          <h3 className="call-card-title">Microphone Access Blocked</h3>
+          <p className="call-card-subtitle">
+            Chrome has blocked microphone access for this website. Follow these 2 quick steps:
+          </p>
+
+          <div className="mic-steps-box">
+            <div className="mic-step">
+              <span className="step-num">1</span>
+              <span>Look at the address bar at the top, click the <strong>Tune / Settings icon (🎛️ or 🔒)</strong> on the left side of <code>ghost-chatly.vercel.app</code></span>
+            </div>
+            <div className="mic-step">
+              <span className="step-num">2</span>
+              <span>Turn <strong>Microphone</strong> toggle to <strong>Allow (ON)</strong></span>
+            </div>
+            <div className="mic-step">
+              <span className="step-num">3</span>
+              <span>Click <strong>Reload &amp; Retry Call</strong> below</span>
+            </div>
+          </div>
+
+          <div className="mic-guide-actions">
+            <button
+              type="button"
+              className="primary-button mic-retry-btn"
+              onClick={onRetryMic}
+            >
+              <Icon name="refresh" size={16} />
+              <span>Reload &amp; Retry Call</span>
+            </button>
+            <button
+              type="button"
+              className="mic-cancel-btn"
+              onClick={onDismissMic}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (callState === "idle") return null;
 
   const initials = peerInitials || peerName.slice(0, 2).toUpperCase();

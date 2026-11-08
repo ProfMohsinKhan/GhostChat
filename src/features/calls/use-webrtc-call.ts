@@ -39,6 +39,7 @@ export function useWebRTCCall({
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [durationSec, setDurationSec] = useState<number>(0);
   const [activeSignal, setActiveSignal] = useState<CallSignalData | null>(null);
+  const [micBlocked, setMicBlocked] = useState<boolean>(false);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -225,16 +226,22 @@ export function useWebRTCCall({
       setCallState("calling");
       callAudio.startOutgoingRing();
 
-      // Request microphone stream
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-        video: false,
-      });
+      // Request microphone stream with fallback
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+          video: false,
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
       localStreamRef.current = stream;
+      setMicBlocked(false);
 
       const pc = new RTCPeerConnection(RTC_CONFIG);
       pcRef.current = pc;
@@ -284,15 +291,18 @@ export function useWebRTCCall({
       console.error("[WebRTC] Failed to start call:", err);
       cleanupMediaAndPeer();
       setCallState("idle");
-      const errorMsg =
-        err instanceof Error && (err.name === "NotAllowedError" || err.message.includes("denied"))
-          ? "Microphone permission is blocked. Click the tune/lock icon in your browser URL bar and set Microphone to 'Allow'."
-          : "Could not access microphone: " +
-            (err instanceof Error ? err.message : "Permission denied");
+      const isDenied =
+        err instanceof Error &&
+        (err.name === "NotAllowedError" || err.message.toLowerCase().includes("denied"));
+      if (isDenied) {
+        setMicBlocked(true);
+      }
+      const errorMsg = isDenied
+        ? "Microphone permission is blocked. Click the tune/lock icon in your browser URL bar and set Microphone to 'Allow'."
+        : "Could not access microphone: " +
+          (err instanceof Error ? err.message : "Permission denied");
       if (onError) {
         onError(errorMsg);
-      } else {
-        alert(errorMsg);
       }
     }
   }, [conversationId, currentUserUid, cleanupMediaAndPeer, onError]);
@@ -307,16 +317,22 @@ export function useWebRTCCall({
       callAudio.stop();
       callRoleRef.current = "receiver";
 
-      // Request microphone stream
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-        video: false,
-      });
+      // Request microphone stream with fallback
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+          video: false,
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
       localStreamRef.current = stream;
+      setMicBlocked(false);
 
       const pc = new RTCPeerConnection(RTC_CONFIG);
       pcRef.current = pc;
@@ -383,11 +399,16 @@ export function useWebRTCCall({
       console.error("[WebRTC] Failed to accept call:", err);
       cleanupMediaAndPeer();
       setCallState("idle");
-      const errorMsg =
-        err instanceof Error && (err.name === "NotAllowedError" || err.message.includes("denied"))
-          ? "Microphone permission is blocked. Click the tune/lock icon in your browser URL bar and set Microphone to 'Allow'."
-          : "Could not access microphone: " +
-            (err instanceof Error ? err.message : "Permission denied");
+      const isDenied =
+        err instanceof Error &&
+        (err.name === "NotAllowedError" || err.message.toLowerCase().includes("denied"));
+      if (isDenied) {
+        setMicBlocked(true);
+      }
+      const errorMsg = isDenied
+        ? "Microphone permission is blocked. Click the tune/lock icon in your browser URL bar and set Microphone to 'Allow'."
+        : "Could not access microphone: " +
+          (err instanceof Error ? err.message : "Permission denied");
       if (onError) {
         onError(errorMsg);
       }
@@ -433,15 +454,37 @@ export function useWebRTCCall({
     }
   }, [isMuted]);
 
+  const retryMicrophone = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      for (const t of stream.getAudioTracks()) t.stop();
+      setMicBlocked(false);
+      await startCall();
+      return true;
+    } catch {
+      if (typeof window !== "undefined") {
+        window.location.reload();
+      }
+      return false;
+    }
+  }, [startCall]);
+
+  const dismissMicBlocked = useCallback(() => {
+    setMicBlocked(false);
+  }, []);
+
   return {
     callState,
     isMuted,
     durationSec,
     activeSignal,
+    micBlocked,
     startCall,
     acceptCall,
     declineCall,
     endCall,
     toggleMute,
+    retryMicrophone,
+    dismissMicBlocked,
   };
 }
