@@ -39,11 +39,11 @@ test("Phase 12: Security Hardening, CSP, Frame Protection & Rules Verification",
         "strict-origin-when-cross-origin"
       );
 
-      // 4. Permissions-Policy: Restricts sensitive ambient hardware access
+      // 4. Permissions-Policy: Restricts sensitive ambient hardware access, allows self for WebRTC voice calls
       const permissionsPolicy = headerMap.get("Permissions-Policy");
       assert.ok(permissionsPolicy);
       assert.ok(permissionsPolicy.includes("camera=()"));
-      assert.ok(permissionsPolicy.includes("microphone=()"));
+      assert.ok(permissionsPolicy.includes("microphone=(self)"));
       assert.ok(permissionsPolicy.includes("geolocation=()"));
 
       // 5. Strict-Transport-Security (HSTS)
